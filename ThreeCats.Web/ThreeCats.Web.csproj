@@ -8,4 +8,9 @@
     <UserSecretsId>77441dbf-4836-4a36-b645-4ff49fa6a4fc</UserSecretsId>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Folder Include="Domain\" />
+    <Folder Include="Data\" />
+  </ItemGroup>
+
 </Project>

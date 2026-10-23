@@ -1,5 +1,6 @@
 using ThreeCats.Web.Components;
 using ThreeCats.Web.Configuration;
+using ThreeCats.Web.Application;
 using Microsoft.Extensions.Options;
 
 namespace ThreeCats.Web
@@ -20,6 +21,8 @@ namespace ThreeCats.Web
                     options => !string.IsNullOrWhiteSpace(options.Name),
                     "Clinic name must not be empty.")
                 .ValidateOnStart();
+
+            builder.Services.AddAplicationService();
 
             var app = builder.Build();
 
