@@ -65,3 +65,13 @@ Data реализует интерфейсы доступа к данным, о�
 Domain не зависит от UI, базы данных и инфраструктуры.
 
 Регистрация прикладных сервисов выполняется централизованно через метод AddApplicationServices().
+
+## Настройка строки подключения к PostgreSQL
+
+В локальном окружении Development строка подключения хранится в ASP.NET Core User Secrets.
+
+Для других окружений строка подключения передаётся через переменную окружения ConnectionStrings__DefaultConnection.
+
+Пример значения:
+
+Host=db.example.com;Port=5432;Database=ThreeCats;Username=app_user;Password=...
