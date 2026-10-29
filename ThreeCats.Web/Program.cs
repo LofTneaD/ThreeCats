@@ -2,6 +2,8 @@ using ThreeCats.Web.Components;
 using ThreeCats.Web.Configuration;
 using ThreeCats.Web.Application;
 using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
+using ThreeCats.Web.Data;
 
 namespace ThreeCats.Web
 {
@@ -23,6 +25,9 @@ namespace ThreeCats.Web
                 .ValidateOnStart();
 
             builder.Services.AddAplicationService();
+
+            builder.Services.AddDbContextFactory<ApplicationDbContext>(
+                options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             var app = builder.Build();
 
