@@ -4,6 +4,8 @@ using ThreeCats.Web.Application;
 using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 using ThreeCats.Web.Data;
+using Microsoft.AspNetCore.Identity;
+using ThreeCats.Web.Domain.Entities;
 
 namespace ThreeCats.Web
 {
@@ -28,6 +30,11 @@ namespace ThreeCats.Web
 
             builder.Services.AddDbContextFactory<ApplicationDbContext>(
                 options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+            builder.Services
+                .AddIdentity<ApplicationUser, IdentityRole<Guid>>()
+                .AddEntityFrameworkStores<ApplicationDbContext>()
+                .AddDefaultTokenProviders();
 
             var app = builder.Build();
 
