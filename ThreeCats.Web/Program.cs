@@ -1,15 +1,15 @@
 using ThreeCats.Web.Components;
-using ThreeCats.Web.Configuration;
-using ThreeCats.Web.Application;
-using Microsoft.Extensions.Options;
+using ThreeCats.Application;
 using Microsoft.EntityFrameworkCore;
-using ThreeCats.Web.Data;
+using ThreeCats.Infrastructure.Data;
+using ThreeCats.Infrastructure;
+using ThreeCats.Application.Options;
 
 namespace ThreeCats.Web
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
@@ -25,11 +25,20 @@ namespace ThreeCats.Web
                 .ValidateOnStart();
 
             builder.Services.AddAplicationService();
-
-            builder.Services.AddDbContextFactory<ApplicationDbContext>(
-                options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+                        
+            builder.Services.AddInfrastructure(builder.Configuration);
 
             var app = builder.Build();
+
+            await using (var scope = app.Services.CreateAsyncScope())
+            {
+                var dbFactory = scope.ServiceProvider
+                    .GetRequiredService<IDbContextFactory<ApplicationDbContext>>();
+
+                await using var dbContext = await dbFactory.CreateDbContextAsync();
+
+                await dbContext.Database.MigrateAsync();
+            }
 
             // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())
