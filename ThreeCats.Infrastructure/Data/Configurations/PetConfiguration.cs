@@ -15,15 +15,13 @@ public class PetConfiguration : IEntityTypeConfiguration<Pet>
         builder.Property(p => p.Species).HasMaxLength(50).IsRequired();
 
         builder.Property(p => p.Breed).HasMaxLength(100).IsRequired();
-                
-        builder.Property(p => p.Sex).HasConversion<int>().IsRequired();
 
         builder.Property(p => p.BirthDate).HasColumnType("date");
 
-        builder.Property(p => p.Weight).HasPrecision(5, 2);
+        builder.Property(p => p.Weight).HasPrecision(5, 2).HasComment("Вес питомца в килограммах");
 
-        builder.Property(p=>p.Notes).HasColumnType("text");
+        builder.ToTable(t => t.HasCheckConstraint("CK_Pet_Weight_NonNegative", "\"Weight\" >= 0"));
 
-        builder.HasOne<Client>().WithMany().HasForeignKey(p=>p.ClientId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Client>(p => p.Client).WithMany(c => c.Pets).HasForeignKey(p=>p.ClientId).OnDelete(DeleteBehavior.Cascade);
     }
 }

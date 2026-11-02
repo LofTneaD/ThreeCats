@@ -11,4 +11,8 @@ public class Visit
     public string Recommendations { get; set; } = string.Empty;
     public string Notes { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    public Appointment Appointment { get; set; } = null!;
+    public Pet Pet { get; set; } = null!;
+    public Doctor Doctor { get; set; } = null!;
+    public ICollection<VisitResult> VisitResults { get; set; } = new List<VisitResult>();
 }

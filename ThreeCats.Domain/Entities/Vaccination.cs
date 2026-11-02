@@ -10,4 +10,6 @@ public class Vaccination
     public DateOnly VaccinatedAt { get; set; }
     public DateOnly? NextDueAt { get; set; }
     public string Notes { get; set; } = string.Empty;
+    public Pet Pet { get; set; } = null!;
+    public Visit? Visit { get; set; }
 }

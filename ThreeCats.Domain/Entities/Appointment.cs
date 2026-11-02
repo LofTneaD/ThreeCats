@@ -15,5 +15,9 @@ public class Appointment
     public AppointmentStatus Status { get; set; }
     public string Comment { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
-
+    public Doctor Doctor { get; set; } = null!;
+    public Client Client { get; set; } = null!;
+    public Pet Pet { get; set; } = null!;
+    public Service Service { get; set; } = null!;
+    public ICollection<Visit> Visits { get; set; } = new List<Visit>();
 }

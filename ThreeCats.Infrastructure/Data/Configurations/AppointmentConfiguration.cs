@@ -9,23 +9,7 @@ public class AppointmentConfiguration : IEntityTypeConfiguration<Appointment>
 {
     public void Configure(EntityTypeBuilder<Appointment> builder)
     {
-        builder.HasKey(a => a.Id);
-
-        builder.Property(a => a.StartAt)
-            .HasColumnType("timestamp with time zone");
-
-        builder.Property(a => a.EndAt)
-            .HasColumnType("timestamp with time zone");
-
-        builder.Property(a => a.Status)
-            .HasConversion<int>()
-            .IsRequired();
-
-        builder.Property(a => a.Comment)
-            .HasColumnType("text");
-
-        builder.Property(a => a.CreatedAt)
-            .HasColumnType("timestamp with time zone");
+        builder.HasKey(a => a.Id);        
 
         builder.HasOne<Client>()
             .WithMany()

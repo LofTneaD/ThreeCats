@@ -7,5 +7,6 @@ public class Client
     public string Address { get; set; } = string.Empty;
     public string Notes { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
-
+    public ICollection<Pet> Pets { get; set; } = new List<Pet>();
+    public ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
 }

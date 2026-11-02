@@ -13,10 +13,6 @@ public class ClientConfigurations : IEntityTypeConfiguration<Client>
 
         builder.HasIndex(c => c.UserId).IsUnique();
 
-        builder.Property(c => c.Address).HasColumnType("text");
-
-        builder.Property(c => c.Notes).HasColumnType("text");
-
         builder.HasOne<ApplicationUser>()
             .WithOne()
             .HasForeignKey<Client>(c => c.UserId)

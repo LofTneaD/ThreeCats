@@ -17,15 +17,6 @@ public class VaccinationConfiguration : IEntityTypeConfiguration<Vaccination>
         builder.Property(v => v.BatchNumber)
             .HasMaxLength(100);
 
-        builder.Property(v => v.VaccinatedAt)
-            .HasColumnType("date");
-
-        builder.Property(v => v.NextDueAt)
-            .HasColumnType("date");
-
-        builder.Property(v => v.Notes)
-            .HasColumnType("text");
-
         builder.HasOne<Pet>()
             .WithMany()
             .HasForeignKey(v => v.PetId)

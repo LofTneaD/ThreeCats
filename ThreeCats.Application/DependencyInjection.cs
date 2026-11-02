@@ -6,7 +6,7 @@ namespace ThreeCats.Application;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddAplicationService(this IServiceCollection services)
+    public static IServiceCollection AddApplicationService(this IServiceCollection services)
     {
         services.AddScoped<IClinicInfoService, ClinicInfoService>();
         return services;

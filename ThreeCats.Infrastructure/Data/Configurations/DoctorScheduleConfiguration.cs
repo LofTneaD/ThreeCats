@@ -15,12 +15,12 @@ public class DoctorScheduleConfiguration : IEntityTypeConfiguration<DoctorSchedu
             .HasConversion(new ValueConverter<DayOfWeek, int>(day => ((int)day + 6) % 7,
             value => (DayOfWeek)((value + 1) % 7))).IsRequired();
 
-        builder.Property(s => s.StartTime).HasColumnType("time without time zone");
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_DoctorSchedule_EndTime_After_StartTime",
+            "\"EndTime\" > \"StartTime\""));
 
-        builder.Property(s => s.EndTime).HasColumnType("time without time zone");
-
-        builder.HasOne<Doctor>()
-            .WithMany()
+        builder.HasOne<Doctor>(s=>s.Doctor)
+            .WithMany(d => d.Schedules)
             .HasForeignKey(s => s.DoctorId)
             .OnDelete(DeleteBehavior.Cascade);
     }

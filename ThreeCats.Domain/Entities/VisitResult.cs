@@ -9,4 +9,5 @@ public class VisitResult
     public string ReferenceRange { get; set; } = string.Empty;
     public DateTime PerformedAt { get; set; }
     public string FileUrl { get; set; } = string.Empty;
+    public Visit Visit { get; set; } = null!;
 }

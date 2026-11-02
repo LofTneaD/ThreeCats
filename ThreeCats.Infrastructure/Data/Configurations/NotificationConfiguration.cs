@@ -23,15 +23,6 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
             .HasConversion<int>()
             .IsRequired();
 
-        builder.Property(n => n.Message)
-            .HasColumnType("text");
-
-        builder.Property(n => n.ScheduledAt)
-            .HasColumnType("timestamp with time zone");
-
-        builder.Property(n => n.SentAt)
-            .HasColumnType("timestamp with time zone");
-
         builder.HasOne<ApplicationUser>()
             .WithMany()
             .HasForeignKey(n => n.UserId)

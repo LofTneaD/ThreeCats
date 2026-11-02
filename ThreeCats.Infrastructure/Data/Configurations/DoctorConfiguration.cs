@@ -15,8 +15,6 @@ public class DoctorConfiguration : IEntityTypeConfiguration<Doctor>
 
         builder.Property(d => d.Specialization).HasMaxLength(150).IsRequired();
 
-        builder.Property(d=>d.Description).HasColumnType("text");
-
         builder.HasOne<ApplicationUser>()
             .WithOne()
             .HasForeignKey<Doctor>(d=>d.UserId)

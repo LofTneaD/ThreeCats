@@ -14,8 +14,7 @@ public class ServiceConfiguration : IEntityTypeConfiguration<Service>
             .HasMaxLength(150)
             .IsRequired();
 
-        builder.Property(s => s.Description)
-            .HasColumnType("text");
+        builder.ToTable(t => t.HasCheckConstraint("CK_Service_Price_NonNegative", "\"Price\" >= 0"));
 
         builder.Property(s => s.Price)
             .HasPrecision(10, 2)

@@ -13,24 +13,6 @@ public class VisitConfiguration : IEntityTypeConfiguration<Visit>
         builder.HasIndex(v => v.AppointmentId)
             .IsUnique();
 
-        builder.Property(v => v.Complaints)
-            .HasColumnType("text");
-
-        builder.Property(v => v.Diagnosis)
-            .HasColumnType("text");
-
-        builder.Property(v => v.Treatment)
-            .HasColumnType("text");
-
-        builder.Property(v => v.Recommendations)
-            .HasColumnType("text");
-
-        builder.Property(v => v.Notes)
-            .HasColumnType("text");
-
-        builder.Property(v => v.CreatedAt)
-            .HasColumnType("timestamp with time zone");
-
         builder.HasOne<Appointment>()
             .WithOne()
             .HasForeignKey<Visit>(v => v.AppointmentId)

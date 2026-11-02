@@ -24,7 +24,7 @@ namespace ThreeCats.Web
                     "Clinic name must not be empty.")
                 .ValidateOnStart();
 
-            builder.Services.AddAplicationService();
+            builder.Services.AddApplicationService();
                         
             builder.Services.AddInfrastructure(builder.Configuration);
 
