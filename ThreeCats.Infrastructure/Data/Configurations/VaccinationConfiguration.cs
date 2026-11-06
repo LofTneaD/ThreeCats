@@ -1,0 +1,30 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ThreeCats.Domain.Entities;
+
+namespace ThreeCats.Infrastructure.Data.Configurations;
+
+public class VaccinationConfiguration : IEntityTypeConfiguration<Vaccination>
+{
+    public void Configure(EntityTypeBuilder<Vaccination> builder)
+    {
+        builder.HasKey(v => v.Id);
+
+        builder.Property(v => v.VaccineName)
+            .HasMaxLength(150)
+            .IsRequired();
+
+        builder.Property(v => v.BatchNumber)
+            .HasMaxLength(100);
+
+        builder.HasOne<Pet>(v => v.Pet)
+            .WithMany(p => p.Vaccinations)
+            .HasForeignKey(v => v.PetId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne<Visit>(v => v.Visit)
+            .WithMany()
+            .HasForeignKey(v => v.VisitId)
+            .OnDelete(DeleteBehavior.SetNull);
+    }
+}

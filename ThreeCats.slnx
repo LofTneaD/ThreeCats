@@ -1,3 +1,6 @@
 <Solution>
+  <Project Path="ThreeCats.Application/ThreeCats.Application.csproj" Id="1cde5ff9-5198-4fe6-957a-167f777101de" />
+  <Project Path="ThreeCats.Domain/ThreeCats.Domain.csproj" Id="60e86437-e43b-4e25-8f8c-22eb35dbf0d8" />
+  <Project Path="ThreeCats.Infrastructure/ThreeCats.Infrastructure.csproj" Id="36b5ab5b-7986-4013-aa25-6d4cab88edd9" />
   <Project Path="ThreeCats.Web/ThreeCats.Web.csproj" />
 </Solution>

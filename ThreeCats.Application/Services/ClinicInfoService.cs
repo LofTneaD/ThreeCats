@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Options;
-using ThreeCats.Web.Configuration;
-using ThreeCats.Web.Application.Interfaces;
+using ThreeCats.Application.Interfaces.Services;
+using ThreeCats.Application.Options;
 
-namespace ThreeCats.Web.Application.Services;
+namespace ThreeCats.Application.Services;
 
 public sealed class ClinicInfoService : IClinicInfoService
 {
