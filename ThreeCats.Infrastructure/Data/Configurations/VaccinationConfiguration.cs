@@ -17,12 +17,12 @@ public class VaccinationConfiguration : IEntityTypeConfiguration<Vaccination>
         builder.Property(v => v.BatchNumber)
             .HasMaxLength(100);
 
-        builder.HasOne<Pet>()
-            .WithMany()
+        builder.HasOne<Pet>(v => v.Pet)
+            .WithMany(p => p.Vaccinations)
             .HasForeignKey(v => v.PetId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasOne<Visit>()
+        builder.HasOne<Visit>(v => v.Visit)
             .WithMany()
             .HasForeignKey(v => v.VisitId)
             .OnDelete(DeleteBehavior.SetNull);

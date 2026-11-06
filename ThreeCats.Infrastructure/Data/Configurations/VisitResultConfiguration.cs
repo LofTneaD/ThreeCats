@@ -17,8 +17,8 @@ public class VisitResultConfiguration : IEntityTypeConfiguration<VisitResult>
         builder.Property(r => r.ReferenceRange)
             .HasMaxLength(150);
 
-        builder.HasOne<Visit>()
-            .WithMany()
+        builder.HasOne<Visit>(r => r.Visit)
+            .WithMany(v => v.VisitResults)
             .HasForeignKey(r => r.VisitId)
             .OnDelete(DeleteBehavior.Cascade);
     }

@@ -19,5 +19,5 @@ public class Appointment
     public Client Client { get; set; } = null!;
     public Pet Pet { get; set; } = null!;
     public Service Service { get; set; } = null!;
-    public ICollection<Visit> Visits { get; set; } = new List<Visit>();
+    public Visit? Visit { get; set; }
 }

@@ -11,22 +11,22 @@ public class AppointmentConfiguration : IEntityTypeConfiguration<Appointment>
     {
         builder.HasKey(a => a.Id);        
 
-        builder.HasOne<Client>()
-            .WithMany()
+        builder.HasOne<Client>(a => a.Client)
+            .WithMany(c => c.Appointments)
             .HasForeignKey(a => a.ClientId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne<Pet>()
-            .WithMany()
+        builder.HasOne<Pet>(a => a.Pet)
+            .WithMany(p => p.Appointments)
             .HasForeignKey(a => a.PetId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne<Doctor>()
-            .WithMany()
+        builder.HasOne<Doctor>(a => a.Doctor)
+            .WithMany(d => d.Appointments)
             .HasForeignKey(a => a.DoctorId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne<Service>()
+        builder.HasOne<Service>(a => a.Service)
             .WithMany()
             .HasForeignKey(a => a.ServiceId)
             .OnDelete(DeleteBehavior.Restrict);

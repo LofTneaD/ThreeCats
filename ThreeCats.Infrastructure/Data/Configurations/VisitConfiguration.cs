@@ -13,12 +13,12 @@ public class VisitConfiguration : IEntityTypeConfiguration<Visit>
         builder.HasIndex(v => v.AppointmentId)
             .IsUnique();
 
-        builder.HasOne<Appointment>()
-            .WithOne()
+        builder.HasOne<Appointment>(v => v.Appointment)
+            .WithOne(a => a.Visit)
             .HasForeignKey<Visit>(v => v.AppointmentId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasOne<Doctor>()
+        builder.HasOne<Doctor>(v => v.Doctor)
             .WithMany()
             .HasForeignKey(v => v.DoctorId)
             .OnDelete(DeleteBehavior.Restrict);

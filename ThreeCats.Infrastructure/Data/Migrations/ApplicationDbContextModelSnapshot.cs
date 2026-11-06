@@ -161,9 +161,6 @@ namespace ThreeCats.Web.Migrations
                     b.Property<Guid>("ClientId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ClientId1")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Comment")
                         .IsRequired()
                         .HasColumnType("text");
@@ -177,22 +174,13 @@ namespace ThreeCats.Web.Migrations
                     b.Property<Guid>("DoctorId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("DoctorId1")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTime>("EndAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("PetId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("PetId1")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid>("ServiceId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ServiceId1")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("StartAt")
@@ -205,21 +193,13 @@ namespace ThreeCats.Web.Migrations
 
                     b.HasIndex("ClientId");
 
-                    b.HasIndex("ClientId1");
-
                     b.HasIndex("CreatedByUserId");
 
                     b.HasIndex("DoctorId");
 
-                    b.HasIndex("DoctorId1");
-
                     b.HasIndex("PetId");
 
-                    b.HasIndex("PetId1");
-
                     b.HasIndex("ServiceId");
-
-                    b.HasIndex("ServiceId1");
 
                     b.ToTable("Appointments");
                 });
@@ -446,9 +426,6 @@ namespace ThreeCats.Web.Migrations
                     b.Property<Guid>("PetId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("PetId1")
-                        .HasColumnType("uuid");
-
                     b.Property<DateOnly>("VaccinatedAt")
                         .HasColumnType("date");
 
@@ -460,18 +437,11 @@ namespace ThreeCats.Web.Migrations
                     b.Property<Guid?>("VisitId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("VisitId1")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("PetId");
 
-                    b.HasIndex("PetId1");
-
                     b.HasIndex("VisitId");
-
-                    b.HasIndex("VisitId1");
 
                     b.ToTable("Vaccinations");
                 });
@@ -483,9 +453,6 @@ namespace ThreeCats.Web.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("AppointmentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("AppointmentId1")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Complaints")
@@ -500,9 +467,6 @@ namespace ThreeCats.Web.Migrations
                         .HasColumnType("text");
 
                     b.Property<Guid>("DoctorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("DoctorId1")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Notes")
@@ -525,11 +489,7 @@ namespace ThreeCats.Web.Migrations
                     b.HasIndex("AppointmentId")
                         .IsUnique();
 
-                    b.HasIndex("AppointmentId1");
-
                     b.HasIndex("DoctorId");
-
-                    b.HasIndex("DoctorId1");
 
                     b.HasIndex("PetId");
 
@@ -566,14 +526,9 @@ namespace ThreeCats.Web.Migrations
                     b.Property<Guid>("VisitId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("VisitId1")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("VisitId");
-
-                    b.HasIndex("VisitId1");
 
                     b.ToTable("VisitResults");
                 });
@@ -696,16 +651,10 @@ namespace ThreeCats.Web.Migrations
 
             modelBuilder.Entity("ThreeCats.Domain.Entities.Appointment", b =>
                 {
-                    b.HasOne("ThreeCats.Domain.Entities.Client", null)
-                        .WithMany()
-                        .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("ThreeCats.Domain.Entities.Client", "Client")
                         .WithMany("Appointments")
-                        .HasForeignKey("ClientId1")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("ThreeCats.Infrastructure.Identity.ApplicationUser", null)
@@ -714,40 +663,22 @@ namespace ThreeCats.Web.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("ThreeCats.Domain.Entities.Doctor", null)
-                        .WithMany()
-                        .HasForeignKey("DoctorId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("ThreeCats.Domain.Entities.Doctor", "Doctor")
                         .WithMany("Appointments")
-                        .HasForeignKey("DoctorId1")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ThreeCats.Domain.Entities.Pet", null)
-                        .WithMany()
-                        .HasForeignKey("PetId")
+                        .HasForeignKey("DoctorId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("ThreeCats.Domain.Entities.Pet", "Pet")
                         .WithMany("Appointments")
-                        .HasForeignKey("PetId1")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ThreeCats.Domain.Entities.Service", null)
-                        .WithMany()
-                        .HasForeignKey("ServiceId")
+                        .HasForeignKey("PetId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("ThreeCats.Domain.Entities.Service", "Service")
                         .WithMany()
-                        .HasForeignKey("ServiceId1")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Client");
@@ -810,26 +741,16 @@ namespace ThreeCats.Web.Migrations
 
             modelBuilder.Entity("ThreeCats.Domain.Entities.Vaccination", b =>
                 {
-                    b.HasOne("ThreeCats.Domain.Entities.Pet", null)
-                        .WithMany()
+                    b.HasOne("ThreeCats.Domain.Entities.Pet", "Pet")
+                        .WithMany("Vaccinations")
                         .HasForeignKey("PetId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ThreeCats.Domain.Entities.Pet", "Pet")
-                        .WithMany("Vaccinations")
-                        .HasForeignKey("PetId1")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ThreeCats.Domain.Entities.Visit", null)
+                    b.HasOne("ThreeCats.Domain.Entities.Visit", "Visit")
                         .WithMany()
                         .HasForeignKey("VisitId")
                         .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("ThreeCats.Domain.Entities.Visit", "Visit")
-                        .WithMany()
-                        .HasForeignKey("VisitId1");
 
                     b.Navigation("Pet");
 
@@ -838,28 +759,16 @@ namespace ThreeCats.Web.Migrations
 
             modelBuilder.Entity("ThreeCats.Domain.Entities.Visit", b =>
                 {
-                    b.HasOne("ThreeCats.Domain.Entities.Appointment", null)
-                        .WithOne()
+                    b.HasOne("ThreeCats.Domain.Entities.Appointment", "Appointment")
+                        .WithOne("Visit")
                         .HasForeignKey("ThreeCats.Domain.Entities.Visit", "AppointmentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ThreeCats.Domain.Entities.Appointment", "Appointment")
-                        .WithMany("Visits")
-                        .HasForeignKey("AppointmentId1")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ThreeCats.Domain.Entities.Doctor", null)
+                    b.HasOne("ThreeCats.Domain.Entities.Doctor", "Doctor")
                         .WithMany()
                         .HasForeignKey("DoctorId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("ThreeCats.Domain.Entities.Doctor", "Doctor")
-                        .WithMany()
-                        .HasForeignKey("DoctorId1")
-                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("ThreeCats.Domain.Entities.Pet", "Pet")
@@ -877,15 +786,9 @@ namespace ThreeCats.Web.Migrations
 
             modelBuilder.Entity("ThreeCats.Domain.Entities.VisitResult", b =>
                 {
-                    b.HasOne("ThreeCats.Domain.Entities.Visit", null)
-                        .WithMany()
-                        .HasForeignKey("VisitId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("ThreeCats.Domain.Entities.Visit", "Visit")
                         .WithMany("VisitResults")
-                        .HasForeignKey("VisitId1")
+                        .HasForeignKey("VisitId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -894,7 +797,7 @@ namespace ThreeCats.Web.Migrations
 
             modelBuilder.Entity("ThreeCats.Domain.Entities.Appointment", b =>
                 {
-                    b.Navigation("Visits");
+                    b.Navigation("Visit");
                 });
 
             modelBuilder.Entity("ThreeCats.Domain.Entities.Client", b =>
