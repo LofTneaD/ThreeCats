@@ -1,0 +1,417 @@
+@page "/admin/services"
+
+@using System.ComponentModel.DataAnnotations
+@using ThreeCats.Application.Services
+
+@inject IServiceManagementService ServiceManagement
+
+<PageTitle>Управление услугами</PageTitle>
+
+<div class="container-fluid mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Управление услугами</h2>
+            <p class="text-muted">
+                Справочник услуг ветеринарной клиники
+            </p>
+        </div>
+
+        <button type="button" class="btn btn-primary"
+                @onclick="StartCreate">
+            Добавить услугу
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @errorMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(successMessage))
+    {
+        <div class="alert alert-success" role="alert">
+            @successMessage
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <p>Загрузка услуг...</p>
+    }
+    else if (services.Count == 0)
+    {
+        <div class="alert alert-info">
+            Услуги пока не добавлены.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Название</th>
+                        <th>Описание</th>
+                        <th>Стоимость</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var service in services)
+                    {
+                        <tr @key="service.Id">
+                            <td>@service.Name</td>
+                            <td>@service.Description</td>
+                            <td>@service.Price.ToString("N2") ₽</td>
+
+                            <td>
+                                @if (service.IsActive)
+                                {
+                                    <span class="badge bg-success">
+                                        Активна
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">
+                                        Неактивна
+                                    </span>
+                                }
+                            </td>
+
+                            <td>
+								<button type="button" class="btn btn-sm btn-outline-primary me-2"
+                                        @onclick="() => StartEdit(service)">
+                                    Изменить
+                                </button>
+
+								<button type="button" class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => ConfirmDelete(service)">
+                                    Удалить
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @if (showForm)
+    {
+        <div class="card mt-4 mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    @(editingId.HasValue
+                        ? "Редактирование услуги"
+                        : "Добавление услуги")
+                </h4>
+            </div>
+
+            <div class="card-body">
+                <EditForm Model="formModel" OnValidSubmit="SaveAsync" FormName="ServiceForm">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            Название услуги
+                        </label>
+
+                        <InputText class="form-control"
+                                   @bind-Value="formModel.Name" />
+
+                        <ValidationMessage For="@(() => formModel.Name)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            Описание
+                        </label>
+
+                        <InputTextArea class="form-control"
+                                       rows="3"
+                                       @bind-Value="formModel.Description" />
+
+                        <ValidationMessage For="@(() => formModel.Description)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            Стоимость (руб.)
+                        </label>
+
+                        <InputNumber class="form-control"
+                                     @bind-Value="formModel.Price" />
+
+                        <ValidationMessage For="@(() => formModel.Price)" />
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <InputCheckbox class="form-check-input"
+                                       @bind-Value="formModel.IsActive" />
+
+                        <label class="form-check-label">
+                            Услуга активна
+                        </label>
+                    </div>
+
+                    <button type="submit"
+                            class="btn btn-primary me-2"
+                            disabled="@isSaving">
+                        @(isSaving ? "Сохранение..." : "Сохранить")
+                    </button>
+
+                    <button type="button"
+                            class="btn btn-secondary"
+                            @onclick="CancelForm"
+                            disabled="@isSaving">
+                        Отмена
+                    </button>
+                </EditForm>
+            </div>
+        </div>
+    }
+
+    @if (serviceToDelete is not null)
+    {
+        <div class="alert alert-warning mt-3">
+            <p>
+                Вы действительно хотите удалить услугу
+                <strong>@serviceToDelete.Name</strong>?
+            </p>
+
+            <button class="btn btn-danger me-2"
+                    @onclick="DeleteAsync">
+                Подтвердить удаление
+            </button>
+
+            <button class="btn btn-secondary"
+                    @onclick="CancelDelete">
+                Отмена
+            </button>
+        </div>
+    }
+
+</div>
+
+@code {
+    private List<ServiceDto> services = [];
+
+    private bool isLoading = true;
+    private bool isSaving;
+    private bool showForm;
+
+    private Guid? editingId;
+
+    private ServiceFormModel formModel = new();
+
+    private ServiceDto? serviceToDelete;
+
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadServicesAsync();
+    }
+
+    private async Task LoadServicesAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await ServiceManagement.GetAllAsync();
+
+            services = result.ToList();
+        }
+        catch (Exception)
+        {
+            errorMessage = "Не удалось загрузить список услуг.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void StartCreate()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        editingId = null;
+
+        formModel = new ServiceFormModel
+        {
+            IsActive = true
+        };
+
+        showForm = true;
+    }
+
+    private void StartEdit(ServiceDto service)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        editingId = service.Id;
+
+        formModel = new ServiceFormModel
+        {
+            Name = service.Name,
+            Description = service.Description,
+            Price = service.Price,
+            IsActive = service.IsActive
+        };
+
+        showForm = true;
+    }
+
+    private void CancelForm()
+    {
+        showForm = false;
+        editingId = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        isSaving = true;
+
+        try
+        {
+            if (editingId.HasValue)
+            {
+                var dto = new UpdateServiceDto(
+                    editingId.Value,
+                    formModel.Name.Trim(),
+                    formModel.Description.Trim(),
+                    formModel.Price,
+                    formModel.IsActive);
+
+                var updated = await ServiceManagement.UpdateAsync(dto);
+
+                if (!updated)
+                {
+                    errorMessage = "Услуга не найдена. Возможно, она была удалена.";
+                    return;
+                }
+
+                successMessage = "Услуга успешно обновлена.";
+            }
+            else
+            {
+                var dto = new CreateServiceDto(
+                    formModel.Name.Trim(),
+                    formModel.Description.Trim(),
+                    formModel.Price,
+                    formModel.IsActive);
+
+                await ServiceManagement.CreateAsync(dto);
+
+                successMessage = "Услуга успешно добавлена.";
+            }
+
+            showForm = false;
+            editingId = null;
+
+            await LoadServicesAsync();
+        }
+        catch (Exception)
+        {
+            errorMessage = "Не удалось сохранить услугу.";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void ConfirmDelete(ServiceDto service)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        serviceToDelete = service;
+    }
+
+    private void CancelDelete()
+    {
+        serviceToDelete = null;
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (serviceToDelete is null)
+            return;
+
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var deleted = await ServiceManagement.DeleteAsync(
+                serviceToDelete.Id);
+
+            if (!deleted)
+            {
+                errorMessage = "Услуга не найдена или уже удалена.";
+                return;
+            }
+
+            successMessage = "Услуга успешно удалена.";
+
+            serviceToDelete = null;
+
+            await LoadServicesAsync();
+        }
+        catch (Exception)
+        {
+            errorMessage = "Не удалось удалить услугу.";
+        }
+    }
+
+	private sealed class ServiceFormModel : IValidatableObject
+	{
+		[Required(ErrorMessage = "Введите название услуги.")]
+		[StringLength(200,
+			ErrorMessage = "Название не должно превышать 200 символов.")]
+		public string Name { get; set; } = string.Empty;
+
+		[StringLength(2000,
+			ErrorMessage = "Описание не должно превышать 2000 символов.")]
+		public string Description { get; set; } = string.Empty;
+
+		public decimal Price { get; set; }
+
+		public bool IsActive { get; set; } = true;
+
+		public IEnumerable<ValidationResult> Validate(
+			ValidationContext validationContext)
+		{
+			if (Price <= 0)
+			{
+				yield return new ValidationResult(
+					"Стоимость должна быть больше нуля.",
+					[nameof(Price)]);
+			}
+
+			if (Price > 999999999.99m)
+			{
+				yield return new ValidationResult(
+					"Стоимость слишком велика.",
+					[nameof(Price)]);
+			}
+		}
+	}
+}
