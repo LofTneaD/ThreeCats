@@ -4,6 +4,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ThreeCats.Infrastructure.Data;
 using ThreeCats.Infrastructure.Identity;
+using ThreeCats.Application.Services;
+using ThreeCats.Infrastructure.Services;
 
 namespace ThreeCats.Infrastructure;
 
@@ -19,6 +21,8 @@ public static class DependencyInjection
             .AddIdentity<ApplicationUser, IdentityRole<Guid>>()
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddDefaultTokenProviders();
+
+        services.AddScoped<IServiceManagementService, ServiceManagementService>();
 
         return services;
     }
