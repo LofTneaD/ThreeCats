@@ -14,8 +14,17 @@ namespace ThreeCats.Web
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
+            //builder.Services.AddRazorComponents()
+            //    .AddInteractiveServerComponents();
             builder.Services.AddRazorComponents()
-                .AddInteractiveServerComponents();
+            .AddInteractiveServerComponents(options =>
+            {
+                options.DetailedErrors = true;
+            });
+
+
+
+
 
             builder.Services.AddOptions<ClinicOptions>()
                 .Bind(builder.Configuration.GetSection(ClinicOptions.SectionName))

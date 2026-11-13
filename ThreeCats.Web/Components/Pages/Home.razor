@@ -1,7 +1,130 @@
-﻿@page "/"
+@page "/"
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Обзор | Три кота</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="dashboard">
 
-Welcome to your new app.
+	<section class="welcome-section">
+		<div>
+			<span class="welcome-label">ПАНЕЛЬ УПРАВЛЕНИЯ</span>
+			<h2>Добро пожаловать!</h2>
+			<p>Здесь собрана основная информация о работе клиники.</p>
+		</div>
+
+		<div class="welcome-icon">🐈</div>
+	</section>
+
+	<section class="statistics">
+		<div class="stat-card">
+			<div class="stat-icon orange">▦</div>
+			<div>
+				<span class="stat-label">Записи сегодня</span>
+				<strong>12</strong>
+				<span class="stat-description">На текущий день</span>
+			</div>
+		</div>
+
+		<div class="stat-card">
+			<div class="stat-icon pink">♧</div>
+			<div>
+				<span class="stat-label">Клиенты</span>
+				<strong>248</strong>
+				<span class="stat-description">Всего зарегистрировано</span>
+			</div>
+		</div>
+
+		<div class="stat-card">
+			<div class="stat-icon purple">🐾</div>
+			<div>
+				<span class="stat-label">Питомцы</span>
+				<strong>316</strong>
+				<span class="stat-description">В базе клиники</span>
+			</div>
+		</div>
+
+		<div class="stat-card">
+			<div class="stat-icon green">♙</div>
+			<div>
+				<span class="stat-label">Врачи</span>
+				<strong>8</strong>
+				<span class="stat-description">В штате клиники</span>
+			</div>
+		</div>
+	</section>
+
+	<section class="appointments-section">
+		<div class="section-header">
+			<div>
+				<h3>Ближайшие приёмы</h3>
+				<p>Предстоящие записи в клинику</p>
+			</div>
+
+			<a href="/admin/appointments" class="all-link">
+				Все записи →
+			</a>
+		</div>
+
+		<div class="appointments-table">
+			<div class="table-header">
+				<span>Время</span>
+				<span>Питомец</span>
+				<span>Владелец</span>
+				<span>Врач</span>
+				<span>Статус</span>
+			</div>
+
+			<div class="appointment-row">
+				<span class="appointment-time">09:00</span>
+				<span class="pet-name">Барсик <small>Кот</small></span>
+				<span>Анна Смирнова</span>
+				<span>Иванов И. И.</span>
+				<span><span class="status confirmed">Подтверждена</span></span>
+			</div>
+
+			<div class="appointment-row">
+				<span class="appointment-time">10:30</span>
+				<span class="pet-name">Рекс <small>Собака</small></span>
+				<span>Дмитрий Козлов</span>
+				<span>Петрова М. А.</span>
+				<span><span class="status waiting">Ожидает</span></span>
+			</div>
+
+			<div class="appointment-row">
+				<span class="appointment-time">11:00</span>
+				<span class="pet-name">Мурка <small>Кошка</small></span>
+				<span>Елена Волкова</span>
+				<span>Иванов И. И.</span>
+				<span><span class="status confirmed">Подтверждена</span></span>
+			</div>
+
+			<div class="appointment-row">
+				<span class="appointment-time">12:15</span>
+				<span class="pet-name">Боня <small>Собака</small></span>
+				<span>Олег Новиков</span>
+				<span>Сидорова А. В.</span>
+				<span><span class="status waiting">Ожидает</span></span>
+			</div>
+		</div>
+	</section>
+
+	<section class="bottom-section">
+		<div class="info-card">
+			<div class="info-icon">📅</div>
+			<div>
+				<h4>Расписание</h4>
+				<p>Управление рабочим временем и графиками врачей.</p>
+				<a href="/admin/schedule">Открыть расписание →</a>
+			</div>
+		</div>
+
+		<div class="info-card">
+			<div class="info-icon">✚</div>
+			<div>
+				<h4>Каталог услуг</h4>
+				<p>Просмотр и редактирование услуг клиники.</p>
+				<a href="/admin/services">Перейти к услугам →</a>
+			</div>
+		</div>
+	</section>
+
+</div>

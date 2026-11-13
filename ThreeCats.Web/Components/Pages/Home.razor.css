@@ -1,0 +1,299 @@
+
+.dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+    max-width: 1500px;
+    margin: 0 auto;
+}
+
+.welcome-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 28px 34px;
+    background: #FFFFFF;
+    border: 1px solid #F0E7E2;
+    border-radius: 16px;
+}
+
+.welcome-label {
+    color: #C52B91;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+}
+
+.welcome-section h2 {
+    margin: 9px 0 6px;
+    color: #282329;
+    font-size: 27px;
+    font-weight: 700;
+}
+
+.welcome-section p {
+    margin: 0;
+    color: #8A8088;
+    font-size: 14px;
+}
+
+.welcome-icon {
+    display: flex;
+    width: 76px;
+    height: 76px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 20px;
+    background: #FFF1E2;
+    font-size: 39px;
+}
+
+.statistics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 125px;
+    padding: 22px;
+    background: #FFFFFF;
+    border: 1px solid #F0E7E2;
+    border-radius: 14px;
+}
+
+.stat-icon {
+    display: flex;
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 13px;
+    font-size: 23px;
+}
+
+    .stat-icon.orange {
+        color: #D97912;
+        background: #FFF1E2;
+    }
+
+    .stat-icon.pink {
+        color: #C52B91;
+        background: #FCEAF5;
+    }
+
+    .stat-icon.purple {
+        color: #75566E;
+        background: #F1EAF0;
+    }
+
+    .stat-icon.green {
+        color: #39866A;
+        background: #E9F5EF;
+    }
+
+.stat-card > div:last-child {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.stat-label {
+    color: #817780;
+    font-size: 12px;
+}
+
+.stat-card strong {
+    color: #282329;
+    font-size: 25px;
+    line-height: 1.2;
+}
+
+.stat-description {
+    color: #A49AA2;
+    font-size: 10px;
+}
+
+.appointments-section {
+    padding: 25px;
+    background: #FFFFFF;
+    border: 1px solid #F0E7E2;
+    border-radius: 14px;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 22px;
+}
+
+    .section-header h3 {
+        margin: 0 0 5px;
+        color: #282329;
+        font-size: 18px;
+        font-weight: 700;
+    }
+
+    .section-header p {
+        margin: 0;
+        color: #9A9098;
+        font-size: 12px;
+    }
+
+.all-link,
+.info-card a {
+    color: #D97912;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+    .all-link:hover,
+    .info-card a:hover {
+        color: #C52B91;
+    }
+
+.appointments-table {
+    width: 100%;
+}
+
+.table-header,
+.appointment-row {
+    display: grid;
+    grid-template-columns: 0.7fr 1.1fr 1.5fr 1.2fr 1.1fr;
+    align-items: center;
+    gap: 12px;
+}
+
+.table-header {
+    padding: 12px 10px;
+    color: #A49AA2;
+    background: #FFFAF7;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.appointment-row {
+    min-height: 65px;
+    padding: 10px;
+    border-bottom: 1px solid #F3ECE8;
+    color: #554B54;
+    font-size: 12px;
+}
+
+    .appointment-row:last-child {
+        border-bottom: none;
+    }
+
+.appointment-time {
+    color: #503A4A;
+    font-weight: 700;
+}
+
+.pet-name {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    color: #282329;
+    font-weight: 600;
+}
+
+    .pet-name small {
+        color: #A49AA2;
+        font-size: 10px;
+        font-weight: 400;
+    }
+
+.status {
+    display: inline-block;
+    padding: 5px 9px;
+    border-radius: 20px;
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+    .status.confirmed {
+        color: #39866A;
+        background: #E9F5EF;
+    }
+
+    .status.waiting {
+        color: #B87920;
+        background: #FFF3DF;
+    }
+
+.bottom-section {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.info-card {
+    display: flex;
+    gap: 16px;
+    padding: 23px;
+    background: #FFFFFF;
+    border: 1px solid #F0E7E2;
+    border-radius: 14px;
+}
+
+.info-icon {
+    display: flex;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: #FFF1E2;
+    font-size: 21px;
+}
+
+.info-card h4 {
+    margin: 0 0 7px;
+    color: #282329;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.info-card p {
+    margin: 0 0 12px;
+    color: #918791;
+    font-size: 11px;
+}
+
+@media (max-width: 1100px) {
+    .statistics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .welcome-section {
+        padding: 22px;
+    }
+
+    .welcome-icon {
+        display: none;
+    }
+
+    .statistics,
+    .bottom-section {
+        grid-template-columns: 1fr;
+    }
+
+    .appointments-section {
+        overflow-x: auto;
+        padding: 18px;
+    }
+
+    .appointments-table {
+        min-width: 650px;
+    }
+}
