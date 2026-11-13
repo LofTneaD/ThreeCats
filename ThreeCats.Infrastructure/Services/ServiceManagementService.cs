@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using ThreeCats.Application.Services;
+using ThreeCats.Application.DTOs.Services;
+using ThreeCats.Application.Interfaces.Services;
 using ThreeCats.Domain.Entities;
 using ThreeCats.Infrastructure.Data;
 
