@@ -1,0 +1,526 @@
+@page "/admin/doctors"
+
+@using System.ComponentModel.DataAnnotations
+@using ThreeCats.Application.Interfaces.Services
+@using ThreeCats.Application.DTOs.Doctors
+
+@inject IDoctorManagementService DoctorManagement
+
+<PageTitle>Управление врачами</PageTitle>
+
+<div class="container-fluid mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Управление врачами</h2>
+            <p class="text-muted">
+                Список врачей ветеринарной клиники
+            </p>
+        </div>
+
+        <button type="button"
+                class="btn btn-primary"
+                @onclick="StartCreate">
+            Добавить врача
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @errorMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(successMessage))
+    {
+        <div class="alert alert-success" role="alert">
+            @successMessage
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <p>Загрузка врачей...</p>
+    }
+    else if (doctors.Count == 0)
+    {
+        <div class="alert alert-info">
+            Врачи пока не добавлены.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>ФИО</th>
+                        <th>Специализация</th>
+                        <th>Описание</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var doctor in doctors)
+                    {
+                        <tr @key="doctor.Id">
+                            <td>
+                                @doctor.LastName @doctor.FirstName @doctor.MiddleName
+                            </td>
+
+                            <td>@doctor.Specialization</td>
+
+                            <td>@doctor.Description</td>
+
+                            <td>
+                                @if (doctor.IsActive)
+                                {
+                                    <span class="badge bg-success">
+                                        Активен
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">
+                                        Неактивен
+                                    </span>
+                                }
+                            </td>
+
+                            <td>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-primary me-2"
+                                        @onclick="() => StartEdit(doctor)">
+                                    Изменить
+                                </button>
+
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => ConfirmDelete(doctor)">
+                                    Удалить
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @if (showForm)
+    {
+        <div class="card mt-4 mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    @(editingId.HasValue
+                        ? "Редактирование врача"
+                        : "Добавление врача")
+                </h4>
+            </div>
+
+            <div class="card-body">
+                <EditForm Model="formModel"
+                          OnValidSubmit="SaveAsync"
+                          FormName="DoctorForm">
+
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <h5 class="mb-3">Личные данные</h5>
+
+                    <div class="mb-3">
+                        <label class="form-label">Фамилия</label>
+
+                        <InputText class="form-control"
+                                   @bind-Value="formModel.LastName" />
+
+                        <ValidationMessage For="@(() => formModel.LastName)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Имя</label>
+
+                        <InputText class="form-control"
+                                   @bind-Value="formModel.FirstName" />
+
+                        <ValidationMessage For="@(() => formModel.FirstName)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Отчество</label>
+
+                        <InputText class="form-control"
+                                   @bind-Value="formModel.MiddleName" />
+                    </div>
+
+                    <hr />
+
+                    <h5 class="mb-3">Учётная запись</h5>
+
+                    <div class="mb-3">
+                        <label class="form-label">Номер телефона</label>
+
+                        <InputText class="form-control"
+                                   @bind-Value="formModel.PhoneNumber" />
+
+                        <ValidationMessage For="@(() => formModel.PhoneNumber)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Электронная почта</label>
+
+                        <InputText class="form-control"
+                                   @bind-Value="formModel.Email" />
+
+                        <ValidationMessage For="@(() => formModel.Email)" />
+                    </div>
+
+                    @if (!editingId.HasValue)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Пароль</label>
+
+                            <InputText type="password"
+                                       class="form-control"
+                                       @bind-Value="formModel.Password" />
+
+                            <ValidationMessage For="@(() => formModel.Password)" />
+                        </div>
+                    }
+
+                    <hr />
+
+                    <h5 class="mb-3">Профессиональные данные</h5>
+
+                    <div class="mb-3">
+                        <label class="form-label">Специализация</label>
+
+                        <InputText class="form-control"
+                                   @bind-Value="formModel.Specialization" />
+
+                        <ValidationMessage For="@(() => formModel.Specialization)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Описание</label>
+
+                        <InputTextArea class="form-control"
+                                       rows="4"
+                                       @bind-Value="formModel.Description" />
+
+                        <ValidationMessage For="@(() => formModel.Description)" />
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <InputCheckbox class="form-check-input"
+                                       @bind-Value="formModel.IsActive" />
+
+                        <label class="form-check-label">
+                            Врач активен
+                        </label>
+                    </div>
+
+                    <button type="submit"
+                            class="btn btn-primary me-2"
+                            disabled="@isSaving">
+                        @(isSaving ? "Сохранение..." : "Сохранить")
+                    </button>
+
+                    <button type="button"
+                            class="btn btn-secondary"
+                            @onclick="CancelForm"
+                            disabled="@isSaving">
+                        Отмена
+                    </button>
+
+                </EditForm>
+            </div>
+        </div>
+    }
+
+    @if (doctorToDelete is not null)
+    {
+        <div class="alert alert-warning mt-3">
+            <p>
+                Вы действительно хотите удалить профиль врача
+                <strong>@doctorToDelete.Specialization</strong>?
+            </p>
+
+            <button class="btn btn-danger me-2"
+                    @onclick="DeleteAsync"
+                    disabled="@isSaving">
+                Подтвердить удаление
+            </button>
+
+            <button class="btn btn-secondary"
+                    @onclick="CancelDelete"
+                    disabled="@isSaving">
+                Отмена
+            </button>
+        </div>
+    }
+
+</div>
+
+@code {
+    private List<DoctorDto> doctors = [];
+
+    private bool isLoading = true;
+    private bool isSaving;
+    private bool showForm;
+
+    private Guid? editingId;
+
+    private DoctorFormModel formModel = new();
+
+    private DoctorDto? doctorToDelete;
+
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDoctorsAsync();
+    }
+
+    private async Task LoadDoctorsAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await DoctorManagement.GetAllAsync();
+
+            doctors = result.ToList();
+        }
+        catch (Exception)
+        {
+            errorMessage = "Не удалось загрузить список врачей.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void StartCreate()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        editingId = null;
+
+        formModel = new DoctorFormModel
+        {
+            IsActive = true,
+            IsEditing = false
+        };
+
+        showForm = true;
+    }
+
+    private void StartEdit(DoctorDto doctor)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        editingId = doctor.Id;
+
+        formModel = new DoctorFormModel
+        {
+            LastName = doctor.LastName,
+            FirstName = doctor.FirstName,
+            MiddleName = doctor.MiddleName,
+            PhoneNumber = doctor.PhoneNumber ?? string.Empty,
+            Email = doctor.Email,
+            Specialization = doctor.Specialization,
+            Description = doctor.Description,
+            IsActive = doctor.IsActive,
+            IsEditing = true
+        };
+
+        showForm = true;
+    }
+
+    private void CancelForm()
+    {
+        showForm = false;
+        editingId = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        isSaving = true;
+
+        try
+        {
+            if (editingId.HasValue)
+            {
+                var dto = new UpdateDoctorDto(
+                    editingId.Value,
+                    formModel.LastName,
+                    formModel.FirstName,
+                    formModel.MiddleName,
+                    formModel.PhoneNumber,
+                    string.IsNullOrWhiteSpace(formModel.Email)
+                        ? null
+                        : formModel.Email,
+                    formModel.Specialization,
+                    formModel.Description,
+                    formModel.IsActive
+                );
+
+                var updated = await DoctorManagement.UpdateAsync(dto);
+
+                if (!updated)
+                {
+                    errorMessage =
+                        "Врач не найден. Возможно, профиль был удалён.";
+
+                    return;
+                }
+
+                successMessage = "Данные врача успешно обновлены.";
+            }
+            else
+            {
+                var dto = new CreateDoctorDto(
+                    formModel.LastName,
+                    formModel.FirstName,
+                    formModel.MiddleName,
+                    formModel.PhoneNumber,
+                    formModel.Email,
+                    formModel.Password,
+                    formModel.Specialization,
+                    formModel.Description,
+                    formModel.IsActive
+                );
+
+                await DoctorManagement.CreateAsync(dto);
+
+                successMessage = "Врач успешно добавлен.";
+            }
+
+            showForm = false;
+            editingId = null;
+
+            await LoadDoctorsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void ConfirmDelete(DoctorDto doctor)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        doctorToDelete = doctor;
+    }
+
+    private void CancelDelete()
+    {
+        doctorToDelete = null;
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (doctorToDelete is null)
+            return;
+
+        errorMessage = null;
+        successMessage = null;
+
+        isSaving = true;
+
+        try
+        {
+            var deleted = await DoctorManagement.DeleteAsync(
+                doctorToDelete.Id);
+
+            if (!deleted)
+            {
+                errorMessage = "Врач не найден или уже удалён.";
+                return;
+            }
+
+            successMessage = "Профиль врача успешно удалён.";
+
+            doctorToDelete = null;
+
+            await LoadDoctorsAsync();
+        }
+        catch (Exception)
+        {
+            errorMessage = "Не удалось удалить профиль врача.";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private sealed class DoctorFormModel : IValidatableObject
+    {
+        [Required(ErrorMessage = "Введите фамилию.")]
+        [StringLength(100)]
+        public string LastName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Введите имя.")]
+        [StringLength(100)]
+        public string FirstName { get; set; } = string.Empty;
+
+        [StringLength(100)]
+        public string? MiddleName { get; set; }
+
+        [Required(ErrorMessage = "Введите номер телефона.")]
+        public string PhoneNumber { get; set; } = string.Empty;
+
+        [EmailAddress(ErrorMessage = "Введите корректный адрес электронной почты.")]
+        public string? Email { get; set; }
+
+        public string Password { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Введите специализацию.")]
+        [StringLength(200)]
+        public string Specialization { get; set; } = string.Empty;
+
+        [StringLength(2000)]
+        public string Description { get; set; } = string.Empty;
+
+        public bool IsActive { get; set; } = true;
+
+        public bool IsEditing { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(
+            ValidationContext validationContext)
+        {
+            if (!IsEditing && string.IsNullOrWhiteSpace(Password))
+            {
+                yield return new ValidationResult(
+                    "Введите пароль для новой учётной записи.",
+                    [nameof(Password)]);
+            }
+
+            if (!IsEditing && string.IsNullOrWhiteSpace(PhoneNumber))
+            {
+                yield return new ValidationResult(
+                    "Введите номер телефона.",
+                    [nameof(PhoneNumber)]);
+            }
+        }
+    }
+}

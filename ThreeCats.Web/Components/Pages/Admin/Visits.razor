@@ -1,0 +1,567 @@
+@page "/admin/visits"
+
+@using ThreeCats.Application.DTOs.Appointments
+@using ThreeCats.Application.DTOs.Clients
+@using ThreeCats.Application.DTOs.Doctors
+@using ThreeCats.Application.DTOs.Pets
+@using ThreeCats.Application.DTOs.Visits
+@using ThreeCats.Application.Interfaces.Appointments
+@using ThreeCats.Application.Interfaces.Pets
+@using ThreeCats.Application.Interfaces.Services
+@using ThreeCats.Application.Interfaces.Visits
+
+@inject IVisitManagementService VisitManagement
+@inject IAppointmentManagementService AppointmentManagement
+@inject IDoctorManagementService DoctorManagement
+@inject IPetManagementService PetManagement
+@inject IClientManagementService ClientManagement
+
+<PageTitle>Визиты | Три кота</PageTitle>
+
+<div class="container-fluid mt-4">
+
+	<div class="d-flex justify-content-between align-items-center mb-4">
+		<div>
+			<h2>Визиты</h2>
+			<p class="text-muted mb-0">
+				История посещений и результаты осмотров питомцев
+			</p>
+		</div>
+
+		<button class="btn btn-primary"
+				@onclick="OpenCreateForm">
+			+ Добавить визит
+		</button>
+	</div>
+
+	@if (!string.IsNullOrWhiteSpace(errorMessage))
+	{
+		<div class="alert alert-danger">
+			@errorMessage
+		</div>
+	}
+
+	@if (!string.IsNullOrWhiteSpace(successMessage))
+	{
+		<div class="alert alert-success">
+			@successMessage
+		</div>
+	}
+
+	@if (isLoading)
+	{
+		<p>Загрузка визитов...</p>
+	}
+	else if (visits.Count == 0)
+	{
+		<div class="alert alert-info">
+			Визитов пока нет. Вы можете добавить первый визит.
+		</div>
+	}
+	else
+	{
+		<div class="table-responsive">
+			<table class="table table-hover align-middle">
+				<thead class="table-light">
+					<tr>
+						<th>Дата визита</th>
+						<th>Питомец</th>
+						<th>Владелец</th>
+						<th>Врач</th>
+						<th>Диагноз</th>
+						<th style="width: 150px;">Действия</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					@foreach (var visit in visits)
+					{
+						var appointment = GetAppointment(visit.AppointmentId);
+						var pet = appointment is null
+							? null
+							: GetPet(appointment.PetId);
+
+						var client = appointment is null
+							? null
+							: GetClient(appointment.ClientId);
+
+						var doctor = GetDoctor(visit.DoctorId);
+
+						<tr @key="visit.Id">
+							<td>
+								@if (appointment is not null)
+								{
+									<div class="fw-semibold">
+										@appointment.StartAt.ToString("dd.MM.yyyy")
+									</div>
+									<small class="text-muted">
+										@appointment.StartAt.ToString("HH:mm")
+									</small>
+								}
+								else
+								{
+									<span class="text-muted">Нет данных</span>
+								}
+							</td>
+
+							<td>
+								@if (pet is not null)
+								{
+									<span class="fw-semibold">@pet.Name</span>
+									<div class="small text-muted">
+										@pet.Species
+									</div>
+								}
+								else
+								{
+									<span class="text-muted">Не найден</span>
+								}
+							</td>
+
+							<td>
+								@if (client is not null)
+								{
+									@client.LastName@client.FirstName
+								}
+								else
+								{
+									<span class="text-muted">Не найден</span>
+								}
+							</td>
+
+							<td>
+								@if (doctor is not null)
+								{
+									@doctor.LastName@doctor.FirstName
+								}
+								else
+								{
+									<span class="text-muted">Не найден</span>
+								}
+							</td>
+
+							<td>
+								@if (!string.IsNullOrWhiteSpace(visit.Diagnosis))
+								{
+									@visit.Diagnosis
+								}
+								else
+								{
+									<span class="text-muted">Не указан</span>
+								}
+							</td>
+
+							<td>
+								<div class="d-flex gap-2">
+									<button class="btn btn-sm btn-outline-primary"
+											title="Редактировать"
+											@onclick="() => OpenEditForm(visit)">
+										Изменить
+									</button>
+
+									<button class="btn btn-sm btn-outline-danger"
+											title="Удалить"
+											@onclick="() => DeleteVisit(visit)">
+										Удалить
+									</button>
+								</div>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+</div>
+
+@if (isFormOpen)
+{
+	<div class="modal d-block"
+		 tabindex="-1"
+		 style="background-color: rgba(0,0,0,0.5);"
+		 role="dialog">
+
+		<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+			<div class="modal-content">
+
+				<div class="modal-header">
+					<h5 class="modal-title">
+						@(isEditing ? "Редактирование визита" : "Новый визит")
+					</h5>
+
+					<button type="button"
+							class="btn-close"
+							@onclick="CloseForm">
+					</button>
+				</div>
+
+				<div class="modal-body">
+
+					@if (!isEditing)
+					{
+						<div class="mb-3">
+							<label class="form-label">
+								Запись на приём *
+							</label>
+
+							<select class="form-select"
+									@bind="selectedAppointmentId">
+								<option value="">Выберите запись</option>
+
+								@foreach (var appointment in availableAppointments)
+								{
+									var pet = GetPet(appointment.PetId);
+									var doctor = GetDoctor(appointment.DoctorId);
+
+									<option value="@appointment.Id">
+										@(pet?.Name ?? "Питомец")
+										—
+										@(doctor is null
+											? "Врач"
+											: $"{doctor.LastName} {doctor.FirstName}")
+										—
+										@appointment.StartAt.ToString("dd.MM.yyyy HH:mm")
+									</option>
+								}
+							</select>
+
+							<div class="form-text">
+								Можно выбрать только запись, для которой ещё не создан визит.
+							</div>
+						</div>
+					}
+					else
+					{
+						<div class="mb-3">
+							<label class="form-label">Запись на приём</label>
+
+							<input class="form-control"
+								   value="@GetAppointmentDescription(editingAppointmentId)"
+								   disabled />
+						</div>
+					}
+
+					<div class="mb-3">
+						<label class="form-label">Жалобы</label>
+
+						<textarea class="form-control"
+								  rows="2"
+								  @bind="complaints">
+                        </textarea>
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Диагноз</label>
+
+						<textarea class="form-control"
+								  rows="2"
+								  @bind="diagnosis">
+                        </textarea>
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Назначенное лечение</label>
+
+						<textarea class="form-control"
+								  rows="3"
+								  @bind="treatment">
+                        </textarea>
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Рекомендации</label>
+
+						<textarea class="form-control"
+								  rows="3"
+								  @bind="recommendations">
+                        </textarea>
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Дополнительные заметки</label>
+
+						<textarea class="form-control"
+								  rows="2"
+								  @bind="notes">
+                        </textarea>
+					</div>
+
+				</div>
+
+				<div class="modal-footer">
+					<button class="btn btn-secondary"
+							@onclick="CloseForm">
+						Отмена
+					</button>
+
+					<button class="btn btn-primary"
+							@onclick="SaveVisit">
+						Сохранить
+					</button>
+				</div>
+
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	private List<VisitDto> visits = new();
+	private List<AppointmentDto> appointments = new();
+	private List<DoctorDto> doctors = new();
+	private List<PetDto> pets = new();
+	private List<ClientDto> clients = new();
+
+	private List<AppointmentDto> availableAppointments = new();
+
+	private bool isLoading = true;
+	private bool isFormOpen;
+	private bool isEditing;
+
+	private Guid? selectedAppointmentId;
+	private Guid editingAppointmentId;
+	private Guid editingVisitId;
+
+	private string complaints = string.Empty;
+	private string diagnosis = string.Empty;
+	private string treatment = string.Empty;
+	private string recommendations = string.Empty;
+	private string notes = string.Empty;
+
+	private string? errorMessage;
+	private string? successMessage;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadData();
+	}
+
+	private async Task LoadData()
+	{
+		try
+		{
+			isLoading = true;
+			errorMessage = null;
+
+			var visitResult = await VisitManagement.GetAllAsync();
+			var appointmentResult = await AppointmentManagement.GetAllAsync();
+			var doctorResult = await DoctorManagement.GetAllAsync();
+			var petResult = await PetManagement.GetAllAsync();
+			var clientResult = await ClientManagement.GetAllAsync();
+
+			visits = visitResult.ToList();
+			appointments = appointmentResult.ToList();
+			doctors = doctorResult.ToList();
+			pets = petResult.ToList();
+			clients = clientResult.ToList();
+
+			UpdateAvailableAppointments();
+		}
+		catch (Exception ex)
+		{
+			errorMessage = $"Не удалось загрузить данные: {ex.Message}";
+		}
+		finally
+		{
+			isLoading = false;
+		}
+	}
+
+	private void UpdateAvailableAppointments()
+	{
+		var visitedAppointmentIds = visits
+			.Select(v => v.AppointmentId)
+			.ToHashSet();
+
+		availableAppointments = appointments
+			.Where(a => !visitedAppointmentIds.Contains(a.Id))
+			.OrderByDescending(a => a.StartAt)
+			.ToList();
+	}
+
+	private AppointmentDto? GetAppointment(Guid id)
+	{
+		return appointments.FirstOrDefault(a => a.Id == id);
+	}
+
+	private PetDto? GetPet(Guid id)
+	{
+		return pets.FirstOrDefault(p => p.Id == id);
+	}
+
+	private ClientDto? GetClient(Guid id)
+	{
+		return clients.FirstOrDefault(c => c.Id == id);
+	}
+
+	private DoctorDto? GetDoctor(Guid id)
+	{
+		return doctors.FirstOrDefault(d => d.Id == id);
+	}
+
+	private string GetAppointmentDescription(Guid appointmentId)
+	{
+		var appointment = GetAppointment(appointmentId);
+
+		if (appointment is null)
+			return "Запись не найдена";
+
+		var pet = GetPet(appointment.PetId);
+		var doctor = GetDoctor(appointment.DoctorId);
+
+		return $"{pet?.Name ?? "Питомец"} — " +
+			   $"{doctor?.LastName ?? "Врач"} — " +
+			   appointment.StartAt.ToString("dd.MM.yyyy HH:mm");
+	}
+
+	private void OpenCreateForm()
+	{
+		isEditing = false;
+		editingVisitId = Guid.Empty;
+		editingAppointmentId = Guid.Empty;
+
+		selectedAppointmentId = null;
+
+		complaints = string.Empty;
+		diagnosis = string.Empty;
+		treatment = string.Empty;
+		recommendations = string.Empty;
+		notes = string.Empty;
+
+		errorMessage = null;
+		isFormOpen = true;
+	}
+
+	private void OpenEditForm(VisitDto visit)
+	{
+		isEditing = true;
+
+		editingVisitId = visit.Id;
+		editingAppointmentId = visit.AppointmentId;
+
+		complaints = visit.Complaints;
+		diagnosis = visit.Diagnosis;
+		treatment = visit.Treatment;
+		recommendations = visit.Recommendations;
+		notes = visit.Notes;
+
+		errorMessage = null;
+		isFormOpen = true;
+	}
+
+	private void CloseForm()
+	{
+		isFormOpen = false;
+	}
+
+	private async Task SaveVisit()
+	{
+		try
+		{
+			errorMessage = null;
+			successMessage = null;
+
+			if (isEditing)
+			{
+				var appointment = GetAppointment(editingAppointmentId);
+
+				if (appointment is null)
+				{
+					errorMessage = "Не удалось найти запись на приём.";
+					return;
+				}
+
+				var dto = new UpdateVisitDto(
+					editingVisitId,
+					appointment.DoctorId,
+					complaints,
+					diagnosis,
+					treatment,
+					recommendations,
+					notes);
+
+				var updated = await VisitManagement.UpdateAsync(dto);
+
+				if (!updated)
+				{
+					errorMessage = "Не удалось обновить визит.";
+					return;
+				}
+			}
+			else
+			{
+				if (selectedAppointmentId is null)
+				{
+					errorMessage = "Выберите запись на приём.";
+					return;
+				}
+
+				var appointment = GetAppointment(selectedAppointmentId.Value);
+
+				if (appointment is null)
+				{
+					errorMessage = "Выбранная запись не найдена.";
+					return;
+				}
+
+				var dto = new CreateVisitDto(
+					appointment.Id,
+					appointment.DoctorId,
+					complaints,
+					diagnosis,
+					treatment,
+					recommendations,
+					notes);
+
+				await VisitManagement.CreateAsync(dto);
+			}
+
+			CloseForm();
+			await LoadData();
+
+			successMessage = isEditing
+				? "Визит успешно обновлён."
+				: "Визит успешно создан.";
+		}
+		catch (Exception ex)
+		{
+			errorMessage = $"Не удалось сохранить визит: {ex.Message}";
+		}
+	}
+
+	private async Task DeleteVisit(VisitDto visit)
+	{
+		var confirmed = await JS.InvokeAsync<bool>(
+			"confirm",
+			"Вы действительно хотите удалить этот визит?");
+
+		if (!confirmed)
+			return;
+
+		try
+		{
+			errorMessage = null;
+			successMessage = null;
+
+			var deleted = await VisitManagement.DeleteAsync(visit.Id);
+
+			if (!deleted)
+			{
+				errorMessage =
+					"Нельзя удалить визит: к нему прикреплены результаты обследований.";
+				return;
+			}
+
+			await LoadData();
+
+			successMessage = "Визит успешно удалён.";
+		}
+		catch (Exception ex)
+		{
+			errorMessage = $"Не удалось удалить визит: {ex.Message}";
+		}
+	}
+
+	[Inject]
+	private IJSRuntime JS { get; set; } = default!;
+}

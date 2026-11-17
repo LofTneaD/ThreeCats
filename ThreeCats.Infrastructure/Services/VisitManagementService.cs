@@ -68,17 +68,15 @@ public class VisitManagementService : IVisitManagementService
         await using var context =
             await _contextFactory.CreateDbContextAsync(cancellationToken);
 
-        // Проверяем существование записи на приём.
-        var appointmentExists = await context.Appointments
-            .AnyAsync(
+        var appointment = await context.Appointments
+            .FirstOrDefaultAsync(
                 appointment => appointment.Id == dto.AppointmentId,
                 cancellationToken);
 
-        if (!appointmentExists)
+        if (appointment is null)
             throw new ArgumentException(
                 "Указанная запись на приём не существует.");
 
-        // Проверяем, что для записи ещё не создано посещение.
         var visitExists = await context.Visits
             .AnyAsync(
                 visit => visit.AppointmentId == dto.AppointmentId,
@@ -91,8 +89,9 @@ public class VisitManagementService : IVisitManagementService
         var visit = new Visit
         {
             Id = Guid.NewGuid(),
-            AppointmentId = dto.AppointmentId,
-            DoctorId = dto.DoctorId,
+            AppointmentId = appointment.Id,
+            PetId = appointment.PetId,
+            DoctorId = appointment.DoctorId,
             Complaints = dto.Complaints,
             Diagnosis = dto.Diagnosis,
             Treatment = dto.Treatment,

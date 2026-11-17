@@ -1,7 +1,13 @@
 namespace ThreeCats.Application.DTOs.Doctors;
 
 public sealed record CreateDoctorDto(
-    Guid UserId,
+    string LastName,
+    string FirstName,
+    string? MiddleName,
+    string PhoneNumber,
+    string? Email,
+    string Password,
     string Specialization,
     string Description,
-    bool IsActive);
+    bool IsActive
+);

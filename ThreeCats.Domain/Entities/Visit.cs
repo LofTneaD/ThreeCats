@@ -4,6 +4,7 @@ public class Visit
 {
     public Guid Id { get; set; }
     public Guid AppointmentId { get; set; }
+    public Guid PetId { get; set; }
     public Guid DoctorId { get; set; }
     public string Complaints { get; set; } = string.Empty;
     public string Diagnosis { get; set; } = string.Empty;

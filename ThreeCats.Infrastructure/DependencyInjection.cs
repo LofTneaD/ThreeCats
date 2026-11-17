@@ -12,6 +12,7 @@ using ThreeCats.Application.Interfaces.Visits;
 using ThreeCats.Infrastructure.Data;
 using ThreeCats.Infrastructure.Identity;
 using ThreeCats.Infrastructure.Services;
+using ThreeCats.Application.Interfaces.Users;
 
 namespace ThreeCats.Infrastructure;
 
@@ -37,6 +38,8 @@ public static class DependencyInjection
         services.AddScoped<IVisitManagementService, VisitManagementService>();
         services.AddScoped<IVisitResultManagementService, VisitResultManagementService>();
         services.AddScoped<IVaccinationManagementService, VaccinationManagementService>();
+        services.AddScoped<IUserManagementService, UserManagementService>();
+        services.AddScoped<IDashboardService, DashboardService>();
 
         return services;
     }

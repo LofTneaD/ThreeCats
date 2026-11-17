@@ -1,0 +1,418 @@
+@page "/admin/users"
+
+@using System.ComponentModel.DataAnnotations
+@using ThreeCats.Application.DTOs.Users
+@using ThreeCats.Application.Interfaces.Users
+@using ThreeCats.Application.Constants
+
+@inject IUserManagementService UserService
+
+<PageTitle>Управление пользователями</PageTitle>
+
+<div class="container-fluid mt-4">
+
+	<h2 class="mb-4">Управление пользователями</h2>
+
+	@if (!string.IsNullOrEmpty(message))
+	{
+		<div class="alert alert-success">@message</div>
+	}
+
+	@if (!string.IsNullOrEmpty(errorMessage))
+	{
+		<div class="alert alert-danger">@errorMessage</div>
+	}
+
+	<div class="card mb-4">
+		<div class="card-header">
+			Создание пользователя
+		</div>
+
+		<div class="card-body">
+			<EditForm Model="newUser" OnValidSubmit="CreateUserAsync">
+				<DataAnnotationsValidator />
+				<ValidationSummary />
+
+				<div class="mb-3">
+					<label class="form-label">Фамилия</label>
+					<InputText class="form-control" @bind-Value="newUser.LastName" />
+					<ValidationMessage For="@(() => newUser.LastName)" />
+				</div>
+
+				<div class="mb-3">
+					<label class="form-label">Имя</label>
+					<InputText class="form-control" @bind-Value="newUser.FirstName" />
+					<ValidationMessage For="@(() => newUser.FirstName)" />
+				</div>
+
+				<div class="mb-3">
+					<label class="form-label">Отчество</label>
+					<InputText class="form-control" @bind-Value="newUser.MiddleName" />
+				</div>
+
+				<div class="mb-3">
+					<label class="form-label">Номер телефона</label>
+					<InputText class="form-control"
+							   @bind-Value="newUser.PhoneNumber" />
+					<ValidationMessage For="@(() => newUser.PhoneNumber)" />
+				</div>
+
+				<div class="mb-3">
+					<label class="form-label">Email</label>
+					<InputText class="form-control"
+							   @bind-Value="newUser.Email" />
+					<ValidationMessage For="@(() => newUser.Email)" />
+				</div>
+
+				<div class="mb-3">
+					<label class="form-label">Пароль</label>
+					<InputText type="password"
+							   class="form-control"
+							   @bind-Value="newUser.Password" />
+					<ValidationMessage For="@(() => newUser.Password)" />
+				</div>
+
+				<div class="mb-3">
+					<label class="form-label">Роль</label>
+					<InputSelect class="form-select"
+								 @bind-Value="newUser.Role">
+						<option value="">Выберите роль</option>
+						<option value="@UserRoles.Client">Клиент</option>
+						<option value="@UserRoles.Moderator">Модератор</option>
+						<option value="@UserRoles.Administrator">Администратор</option>
+					</InputSelect>
+					<ValidationMessage For="@(() => newUser.Role)" />
+				</div>
+
+				<button type="submit" class="btn btn-primary">
+					Создать пользователя
+				</button>
+			</EditForm>
+		</div>
+	</div>
+
+	<h4 class="mb-3">Список пользователей</h4>
+
+	@if (users is null)
+	{
+		<p>Загрузка пользователей...</p>
+	}
+	else if (users.Count == 0)
+	{
+		<p>Пользователи не найдены.</p>
+	}
+	else
+	{
+		<div class="table-responsive">
+			<table class="table table-striped table-hover align-middle">
+				<thead>
+					<tr>
+						<th>ФИО</th>
+						<th>Телефон</th>
+						<th>Email</th>
+						<th>Роль</th>
+						<th>Действия</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					@foreach (var user in users)
+					{
+						<tr>
+							<td>@user.LastName @user.FirstName @user.MiddleName</td>
+							<td>@user.PhoneNumber</td>
+							<td>@user.Email</td>
+							<td>@GetRoleDisplayName(user.Role)</td>
+							<td>
+								<button class="btn btn-sm btn-warning me-2"
+										@onclick="() => StartEdit(user)">
+									Изменить
+								</button>
+
+								<button class="btn btn-sm btn-danger"
+										@onclick="() => DeleteUserAsync(user.Id)">
+									Удалить
+								</button>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+
+	@if (editingUser is not null)
+	{
+		<div class="card mb-4">
+			<div class="card-header">
+				Редактирование пользователя
+			</div>
+
+			<div class="card-body">
+				<EditForm Model="editingUser"
+						  OnValidSubmit="UpdateUserAsync">
+
+					<DataAnnotationsValidator />
+					<ValidationSummary />
+
+					<div class="mb-3">
+						<label class="form-label">Фамилия</label>
+						<InputText class="form-control"
+								   @bind-Value="editingUser.LastName" />
+						<ValidationMessage For="@(() => editingUser.LastName)" />
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Имя</label>
+						<InputText class="form-control"
+								   @bind-Value="editingUser.FirstName" />
+						<ValidationMessage For="@(() => editingUser.FirstName)" />
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Отчество</label>
+						<InputText class="form-control"
+								   @bind-Value="editingUser.MiddleName" />
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Номер телефона</label>
+						<InputText class="form-control"
+								   @bind-Value="editingUser.PhoneNumber" />
+						<ValidationMessage For="@(() => editingUser.PhoneNumber)" />
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Email</label>
+						<InputText class="form-control"
+								   @bind-Value="editingUser.Email" />
+						<ValidationMessage For="@(() => editingUser.Email)" />
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Роль</label>
+
+						@if (editingUser.Role == UserRoles.Doctor)
+						{
+							<input class="form-control"
+								   value="Врач"
+								   disabled />
+
+							<div class="form-text">
+								Роль врача управляется через раздел «Врачи».
+							</div>
+						}
+						else
+						{
+							<InputSelect class="form-select"
+										 @bind-Value="editingUser.Role">
+								<option value="@UserRoles.Client">Клиент</option>
+								<option value="@UserRoles.Moderator">Модератор</option>
+								<option value="@UserRoles.Administrator">Администратор</option>
+							</InputSelect>
+						}
+					</div>
+
+					<button type="submit" class="btn btn-success">
+						Сохранить
+					</button>
+
+					<button type="button"
+							class="btn btn-secondary ms-2"
+							@onclick="CancelEdit">
+						Отмена
+					</button>
+				</EditForm>
+			</div>
+		</div>
+	}
+
+</div>
+
+@code {
+	private List<UserDto>? users;
+
+	private CreateUserModel newUser = new();
+
+	private string? message;
+	private string? errorMessage;
+
+	private UpdateUserModel? editingUser;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadUsersAsync();
+	}
+
+	private async Task LoadUsersAsync()
+	{
+		users = (await UserService.GetAllAsync()).ToList();
+	}
+
+	private async Task CreateUserAsync()
+	{
+		message = null;
+		errorMessage = null;
+
+		try
+		{
+			var dto = new CreateUserDto(
+				newUser.LastName,
+				newUser.FirstName,
+				newUser.MiddleName,
+				newUser.PhoneNumber,
+				string.IsNullOrWhiteSpace(newUser.Email) ? null : newUser.Email,
+				newUser.Password,
+				newUser.Role
+			);
+
+			await UserService.CreateAsync(dto);
+
+			message = "Пользователь успешно создан.";
+
+			newUser = new CreateUserModel();
+
+			await LoadUsersAsync();
+		}
+		catch (Exception ex)
+		{
+			errorMessage = ex.Message;
+		}
+	}
+
+	private void StartEdit(UserDto user)
+	{
+		editingUser = new UpdateUserModel
+		{
+			Id = user.Id,
+			LastName = user.LastName,
+			FirstName = user.FirstName,
+			MiddleName = user.MiddleName,
+			PhoneNumber = user.PhoneNumber ?? string.Empty,
+			Email = user.Email,
+			Role = user.Role
+		};
+
+		message = null;
+		errorMessage = null;
+	}
+
+	private void CancelEdit()
+	{
+		editingUser = null;
+	}
+
+	private async Task UpdateUserAsync()
+	{
+		if (editingUser is null)
+			return;
+
+		message = null;
+		errorMessage = null;
+
+		try
+		{
+			var dto = new UpdateUserDto(
+				editingUser.Id,
+				editingUser.LastName,
+				editingUser.FirstName,
+				editingUser.MiddleName,
+				editingUser.PhoneNumber,
+				string.IsNullOrWhiteSpace(editingUser.Email)
+					? null
+					: editingUser.Email,
+				editingUser.Role
+			);
+
+			await UserService.UpdateAsync(dto);
+
+			message = "Данные пользователя успешно обновлены.";
+
+			editingUser = null;
+
+			await LoadUsersAsync();
+		}
+		catch (Exception ex)
+		{
+			errorMessage = ex.Message;
+		}
+	}
+
+	private async Task DeleteUserAsync(Guid id)
+	{
+		message = null;
+		errorMessage = null;
+
+		try
+		{
+			await UserService.DeleteAsync(id);
+
+			message = "Пользователь удалён.";
+
+			if (editingUser?.Id == id)
+				editingUser = null;
+
+			await LoadUsersAsync();
+		}
+		catch (Exception ex)
+		{
+			errorMessage = ex.Message;
+		}
+	}
+
+	private static string GetRoleDisplayName(string role)
+	{
+		return role switch
+		{
+			UserRoles.Client => "Клиент",
+			UserRoles.Doctor => "Врач",
+			UserRoles.Moderator => "Модератор",
+			UserRoles.Administrator => "Администратор",
+			_ => role
+		};
+	}
+
+	private class CreateUserModel
+	{
+		[Required(ErrorMessage = "Введите фамилию.")]
+		public string LastName { get; set; } = string.Empty;
+
+		[Required(ErrorMessage = "Введите имя.")]
+		public string FirstName { get; set; } = string.Empty;
+
+		public string? MiddleName { get; set; }
+
+		[Required(ErrorMessage = "Введите номер телефона.")]
+		public string PhoneNumber { get; set; } = string.Empty;
+
+		[EmailAddress(ErrorMessage = "Введите корректный email.")]
+		public string? Email { get; set; }
+
+		[Required(ErrorMessage = "Введите пароль.")]
+		public string Password { get; set; } = string.Empty;
+
+		[Required(ErrorMessage = "Выберите роль.")]
+		public string Role { get; set; } = string.Empty;
+	}
+
+	private class UpdateUserModel
+	{
+		public Guid Id { get; set; }
+
+		[Required(ErrorMessage = "Введите фамилию.")]
+		public string LastName { get; set; } = string.Empty;
+
+		[Required(ErrorMessage = "Введите имя.")]
+		public string FirstName { get; set; } = string.Empty;
+
+		public string? MiddleName { get; set; }
+
+		[Required(ErrorMessage = "Введите номер телефона.")]
+		public string PhoneNumber { get; set; } = string.Empty;
+
+		[EmailAddress(ErrorMessage = "Введите корректный email.")]
+		public string? Email { get; set; }
+
+		public string Role { get; set; } = string.Empty;
+	}
+}
