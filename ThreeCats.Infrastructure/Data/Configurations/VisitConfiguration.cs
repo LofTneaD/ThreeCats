@@ -18,6 +18,11 @@ public class VisitConfiguration : IEntityTypeConfiguration<Visit>
             .HasForeignKey<Visit>(v => v.AppointmentId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasOne<Pet>(v => v.Pet)
+            .WithMany(p => p.Visits)
+            .HasForeignKey(v => v.PetId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.HasOne<Doctor>(v => v.Doctor)
             .WithMany()
             .HasForeignKey(v => v.DoctorId)

@@ -1,7 +1,208 @@
-﻿@page "/"
+@page "/"
 
-<PageTitle>Home</PageTitle>
+@using ThreeCats.Application.DTOs.Dashboard
+@using ThreeCats.Application.Interfaces.Services
+@using ThreeCats.Domain.Enums
 
-<h1>Hello, world!</h1>
+@inject IDashboardService DashboardService
 
-Welcome to your new app.
+<PageTitle>Обзор | Три кота</PageTitle>
+
+<div class="dashboard">
+
+    <section class="welcome-section">
+        <div>
+            <span class="welcome-label">ПАНЕЛЬ УПРАВЛЕНИЯ</span>
+            <h2>Добро пожаловать!</h2>
+            <p>Здесь собрана основная информация о работе клиники.</p>
+        </div>
+
+        <div class="welcome-icon">🐈</div>
+    </section>
+
+    @if (isLoading)
+    {
+        <p>Загрузка данных...</p>
+    }
+    else if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger">
+            @errorMessage
+        </div>
+    }
+    else if (dashboard is not null)
+    {
+        <section class="statistics">
+
+            <div class="stat-card">
+                <div class="stat-icon orange">▦</div>
+                <div>
+                    <span class="stat-label">Записи сегодня</span>
+                    <strong>@dashboard.TodayAppointmentsCount</strong>
+                    <span class="stat-description">На текущий день</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon pink">♧</div>
+                <div>
+                    <span class="stat-label">Клиенты</span>
+                    <strong>@dashboard.ClientsCount</strong>
+                    <span class="stat-description">Всего зарегистрировано</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon purple">🐾</div>
+                <div>
+                    <span class="stat-label">Питомцы</span>
+                    <strong>@dashboard.PetsCount</strong>
+                    <span class="stat-description">В базе клиники</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon green">♙</div>
+                <div>
+                    <span class="stat-label">Врачи</span>
+                    <strong>@dashboard.DoctorsCount</strong>
+                    <span class="stat-description">Активных специалистов</span>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="appointments-section">
+
+            <div class="section-header">
+                <div>
+                    <h3>Ближайшие приёмы</h3>
+                    <p>Предстоящие записи в клинику</p>
+                </div>
+
+                <a href="/admin/appointments" class="all-link">
+                    Все записи →
+                </a>
+            </div>
+
+            <div class="appointments-table">
+
+                <div class="table-header">
+                    <span>Время</span>
+                    <span>Питомец</span>
+                    <span>Владелец</span>
+                    <span>Врач</span>
+                    <span>Статус</span>
+                </div>
+
+                @if (dashboard.UpcomingAppointments.Count == 0)
+                {
+                    <div class="appointment-row">
+                        <span style="grid-column: 1 / -1; text-align: center;">
+                            Предстоящих приёмов нет
+                        </span>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var appointment in dashboard.UpcomingAppointments)
+                    {
+                        <div class="appointment-row" @key="appointment.Id">
+
+                            <span class="appointment-time">
+                                @appointment.StartAt.ToLocalTime().ToString("dd.MM HH:mm")
+                            </span>
+
+                            <span class="pet-name">
+                                @appointment.PetName
+                                <small>@appointment.PetSpecies</small>
+                            </span>
+
+                            <span>@appointment.ClientFullName</span>
+
+                            <span>@appointment.DoctorFullName</span>
+
+                            <span>
+                                <span class="status @GetStatusCssClass(appointment.Status)">
+                                    @GetStatusDisplayName(appointment.Status)
+                                </span>
+                            </span>
+
+                        </div>
+                    }
+                }
+
+            </div>
+        </section>
+
+        <section class="bottom-section">
+
+            <div class="info-card">
+                <div class="info-icon">📅</div>
+                <div>
+                    <h4>Расписание</h4>
+                    <p>Управление рабочим временем и графиками врачей.</p>
+                    <a href="/admin/schedule">Открыть расписание →</a>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="info-icon">✚</div>
+                <div>
+                    <h4>Каталог услуг</h4>
+                    <p>Просмотр и редактирование услуг клиники.</p>
+                    <a href="/admin/services">Перейти к услугам →</a>
+                </div>
+            </div>
+
+        </section>
+    }
+
+</div>
+
+@code {
+    private DashboardDto? dashboard;
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            dashboard = await DashboardService.GetDashboardAsync();
+        }
+        catch (Exception)
+        {
+            errorMessage = "Не удалось загрузить данные главной страницы.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string GetStatusDisplayName(AppointmentStatus status)
+    {
+        return status switch
+        {
+            AppointmentStatus.Scheduled => "Ожидает",
+            AppointmentStatus.Confirmed => "Подтверждена",
+            AppointmentStatus.Completed => "Завершена",
+            AppointmentStatus.Cancelled => "Отменена",
+            AppointmentStatus.NoShow => "Неявка",
+            _ => "Неизвестно"
+        };
+    }
+
+    private static string GetStatusCssClass(AppointmentStatus status)
+    {
+        return status switch
+        {
+            AppointmentStatus.Confirmed => "confirmed",
+            AppointmentStatus.Scheduled => "waiting",
+            AppointmentStatus.Completed => "confirmed",
+            AppointmentStatus.NoShow => "waiting",
+            _ => "waiting"
+        };
+    }
+}

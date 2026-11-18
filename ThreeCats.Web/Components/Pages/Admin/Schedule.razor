@@ -1,0 +1,411 @@
+
+@page "/admin/schedule"
+
+@using ThreeCats.Application.DTOs.Doctors
+@using ThreeCats.Application.DTOs.DoctorSchedules
+@using ThreeCats.Application.Interfaces.Services
+@using ThreeCats.Application.Interfaces.DoctorSchedules
+
+@inject IDoctorManagementService DoctorManagement
+@inject IDoctorScheduleManagementService ScheduleManagement
+
+<PageTitle>Расписание врачей</PageTitle>
+
+<div class="container-fluid mt-4">
+
+    <div class="mb-4">
+        <h2>Расписание врачей</h2>
+        <p class="text-muted">
+            Рабочие дни и время приёма каждого врача
+        </p>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @errorMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(successMessage))
+    {
+        <div class="alert alert-success" role="alert">
+            @successMessage
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <p>Загрузка расписания...</p>
+    }
+    else if (doctors.Count == 0)
+    {
+        <div class="alert alert-info">
+            Врачи пока не добавлены.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle text-center">
+                <thead class="table-light">
+                    <tr>
+                        <th style="min-width: 200px; text-align: left;">
+                            Врач
+                        </th>
+
+                        @foreach (var day in weekDays)
+                        {
+                            <th style="min-width: 115px;">
+                                @day.Name
+                            </th>
+                        }
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var doctor in doctors)
+                    {
+                        <tr @key="doctor.Id">
+                            <td class="text-start">
+                                <div class="fw-semibold">
+                                    @doctor.LastName @doctor.FirstName
+                                </div>
+
+                                @if (!string.IsNullOrWhiteSpace(doctor.MiddleName))
+                                {
+                                    <div class="text-muted small">
+                                        @doctor.MiddleName
+                                    </div>
+                                }
+
+                                <div class="text-muted small">
+                                    @doctor.Specialization
+                                </div>
+                            </td>
+
+                            @foreach (var day in weekDays)
+                            {
+                                var schedule = GetSchedule(doctor.Id, day.Day);
+
+                                <td class="p-1">
+                                    <button type="button"
+                                            class="btn w-100 schedule-cell
+                                                @(schedule?.IsActive == true
+                                                    ? "btn-outline-success"
+                                                    : "btn-outline-secondary")"
+                                            @onclick="() => OpenEditor(doctor, day)">
+                                        @if (schedule?.IsActive == true)
+                                        {
+                                            <span class="fw-semibold">
+                                                @schedule.StartTime.ToString("HH:mm")
+                                            </span>
+
+                                            <span class="text-muted">–</span>
+
+                                            <span class="fw-semibold">
+                                                @schedule.EndTime.ToString("HH:mm")
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">
+                                                Выходной
+                                            </span>
+                                        }
+                                    </button>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-3 d-flex gap-3 flex-wrap">
+            <div>
+                <span class="badge bg-success">&nbsp;</span>
+                <span class="text-muted small">Рабочий день</span>
+            </div>
+
+            <div>
+                <span class="badge bg-secondary">&nbsp;</span>
+                <span class="text-muted small">Выходной</span>
+            </div>
+        </div>
+    }
+</div>
+
+@if (isEditorOpen)
+{
+    <div class="modal d-block"
+         tabindex="-1"
+         style="background-color: rgba(0,0,0,0.5);"
+         role="dialog">
+
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        Расписание: @selectedDoctor?.LastName
+                        @selectedDoctor?.FirstName
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            @onclick="CloseEditor">
+                    </button>
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="mb-3">
+                        <label class="form-label">День недели</label>
+
+                        <input class="form-control"
+                               value="@selectedDay?.Name"
+                               disabled />
+                    </div>
+
+                    <div class="form-check form-switch mb-4">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="workingDay"
+                               @bind="isWorkingDay" />
+
+                        <label class="form-check-label"
+                               for="workingDay">
+                            Рабочий день
+                        </label>
+                    </div>
+
+                    @if (isWorkingDay)
+                    {
+                        <div class="row">
+                            <div class="col-6">
+                                <label class="form-label">
+                                    Начало работы
+                                </label>
+
+                                <input type="time"
+                                       class="form-control"
+                                       @bind="startTime" />
+                            </div>
+
+                            <div class="col-6">
+                                <label class="form-label">
+                                    Окончание работы
+                                </label>
+
+                                <input type="time"
+                                       class="form-control"
+                                       @bind="endTime" />
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-secondary mb-0">
+                            В выбранный день врач не работает.
+                        </div>
+                    }
+
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button"
+                            class="btn btn-secondary"
+                            @onclick="CloseEditor">
+                        Отмена
+                    </button>
+
+                    <button type="button"
+                            class="btn btn-primary"
+                            @onclick="SaveSchedule">
+                        Сохранить
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<DoctorDto> doctors = new();
+    private List<DoctorScheduleDto> schedules = new();
+
+    private readonly List<DayInfo> weekDays = new()
+    {
+        new(DayOfWeek.Monday, "Понедельник"),
+        new(DayOfWeek.Tuesday, "Вторник"),
+        new(DayOfWeek.Wednesday, "Среда"),
+        new(DayOfWeek.Thursday, "Четверг"),
+        new(DayOfWeek.Friday, "Пятница"),
+        new(DayOfWeek.Saturday, "Суббота"),
+        new(DayOfWeek.Sunday, "Воскресенье")
+    };
+
+    private bool isLoading = true;
+    private bool isEditorOpen;
+    private bool isWorkingDay;
+
+    private DoctorDto? selectedDoctor;
+    private DayInfo? selectedDay;
+
+    private TimeOnly? startTime = new TimeOnly(9, 0);
+    private TimeOnly? endTime = new TimeOnly(18, 0);
+
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            var doctorResult = await DoctorManagement.GetAllForSelectionAsync();
+            var scheduleResult = await ScheduleManagement.GetAllAsync();
+
+            doctors = doctorResult
+                .Where(d => d.IsActive)
+                .OrderBy(d => d.LastName)
+                .ThenBy(d => d.FirstName)
+                .ToList();
+
+            schedules = scheduleResult.ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Не удалось загрузить расписание: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private DoctorScheduleDto? GetSchedule(
+        Guid doctorId,
+        DayOfWeek day)
+    {
+        return schedules.FirstOrDefault(s =>
+            s.DoctorId == doctorId &&
+            s.DayOfWeek == day);
+    }
+
+	private void OpenEditor(DoctorDto doctor, DayInfo day)
+	{
+		selectedDoctor = doctor;
+		selectedDay = day;
+
+		var schedule = GetSchedule(doctor.Id, day.Day);
+
+		if (schedule is not null)
+		{
+			isWorkingDay = schedule.IsActive;
+			startTime = schedule.StartTime;
+			endTime = schedule.EndTime;
+		}
+		else
+		{
+			isWorkingDay = false;
+			startTime = new TimeOnly(9, 0);
+			endTime = new TimeOnly(18, 0);
+		}
+
+		errorMessage = null;
+		isEditorOpen = true;
+	}
+
+    private void CloseEditor()
+    {
+        isEditorOpen = false;
+        selectedDoctor = null;
+        selectedDay = null;
+    }
+
+	private async Task SaveSchedule()
+	{
+		if (selectedDoctor is null || selectedDay is null)
+			return;
+
+		try
+		{
+			errorMessage = null;
+			successMessage = null;
+
+			var existingSchedule = GetSchedule(
+				selectedDoctor.Id,
+				selectedDay.Day);
+
+			if (isWorkingDay)
+			{
+				if (startTime is null || endTime is null)
+				{
+					errorMessage = "Укажите время начала и окончания работы.";
+					return;
+				}
+
+				if (endTime.Value <= startTime.Value)
+				{
+					errorMessage = "Время окончания должно быть позже времени начала.";
+					return;
+				}
+
+				if (existingSchedule is null)
+				{
+					await ScheduleManagement.CreateAsync(
+						new CreateDoctorScheduleDto(
+							selectedDoctor.Id,
+							selectedDay.Day,
+							startTime.Value,
+							endTime.Value,
+							true));
+				}
+				else
+				{
+					await ScheduleManagement.UpdateAsync(
+						new UpdateDoctorScheduleDto(
+							existingSchedule.Id,
+							selectedDay.Day,
+							startTime.Value,
+							endTime.Value,
+							true));
+				}
+			}
+			else
+			{
+				if (existingSchedule is not null)
+				{
+					await ScheduleManagement.UpdateAsync(
+						new UpdateDoctorScheduleDto(
+							existingSchedule.Id,
+							selectedDay.Day,
+							existingSchedule.StartTime,
+							existingSchedule.EndTime,
+							false));
+				}
+			}
+
+			CloseEditor();
+			await LoadData();
+
+			successMessage = "Расписание успешно сохранено.";
+		}
+		catch (Exception ex)
+		{
+			errorMessage = $"Не удалось сохранить расписание: {ex.Message}";
+		}
+	}
+
+    private sealed record DayInfo(DayOfWeek Day, string Name);
+}

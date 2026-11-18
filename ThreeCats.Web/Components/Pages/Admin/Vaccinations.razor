@@ -1,0 +1,624 @@
+@page "/admin/vaccinations"
+
+@using ThreeCats.Application.DTOs.Vaccinations
+@using ThreeCats.Application.DTOs.Pets
+@using ThreeCats.Application.DTOs.Clients
+@using ThreeCats.Application.DTOs.Visits
+@using ThreeCats.Application.DTOs.Appointments
+@using ThreeCats.Application.Interfaces.Vaccinations
+@using ThreeCats.Application.Interfaces.Pets
+@using ThreeCats.Application.Interfaces.Services
+@using ThreeCats.Application.Interfaces.Visits
+@using ThreeCats.Application.Interfaces.Appointments
+@using ThreeCats.Application.Models.Pagination
+
+@inject IVaccinationManagementService VaccinationManagement
+@inject IPetManagementService PetManagement
+@inject IClientManagementService ClientManagement
+@inject IVisitManagementService VisitManagement
+@inject IAppointmentManagementService AppointmentManagement
+@inject IJSRuntime JS
+
+<PageTitle>Вакцинации | Три кота</PageTitle>
+
+<div class="container-fluid mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Вакцинации</h2>
+            <p class="text-muted mb-0">
+                Учёт прививок и сроков следующей вакцинации питомцев
+            </p>
+        </div>
+
+        <button class="btn btn-primary"
+                @onclick="OpenCreateForm">
+            + Добавить вакцинацию
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger">
+            @errorMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(successMessage))
+    {
+        <div class="alert alert-success">
+            @successMessage
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <p>Загрузка вакцинаций...</p>
+    }
+    else if (vaccinations.Count == 0)
+    {
+        <div class="alert alert-info">
+            Записей о вакцинациях пока нет.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Питомец</th>
+                        <th>Владелец</th>
+                        <th>Вакцина</th>
+                        <th>Номер партии</th>
+                        <th>Дата вакцинации</th>
+                        <th>Следующая вакцинация</th>
+                        <th style="width: 150px;">Действия</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var vaccination in vaccinations)
+                    {
+                        var pet = GetPet(vaccination.PetId);
+                        var client = pet is null
+                            ? null
+                            : GetClient(pet.ClientId);
+
+                        <tr @key="vaccination.Id">
+                            <td>
+                                @if (pet is not null)
+                                {
+                                    <div class="fw-semibold">@pet.Name</div>
+                                    <small class="text-muted">@pet.Species</small>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Не найден</span>
+                                }
+                            </td>
+
+                            <td>
+                                @if (client is not null)
+                                {
+                                    @client.LastName @client.FirstName
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Не найден</span>
+                                }
+                            </td>
+
+                            <td>@vaccination.VaccineName</td>
+
+                            <td>
+                                @(string.IsNullOrWhiteSpace(vaccination.BatchNumber)
+                                    ? "—"
+                                    : vaccination.BatchNumber)
+                            </td>
+
+                            <td>
+                                @vaccination.VaccinatedAt.ToString("dd.MM.yyyy")
+                            </td>
+
+                            <td>
+                                @if (vaccination.NextDueAt.HasValue)
+                                {
+                                    var isOverdue =
+                                        vaccination.NextDueAt.Value < DateOnly.FromDateTime(DateTime.Today);
+
+                                    <span class="@(isOverdue ? "text-danger fw-semibold" : "")">
+                                        @vaccination.NextDueAt.Value.ToString("dd.MM.yyyy")
+                                    </span>
+
+                                    @if (isOverdue)
+                                    {
+                                        <div>
+                                            <span class="badge bg-danger">
+                                                Просрочена
+                                            </span>
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Не указана</span>
+                                }
+                            </td>
+
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            @onclick="() => OpenEditForm(vaccination)">
+                                        Изменить
+                                    </button>
+
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => DeleteVaccination(vaccination)">
+                                        Удалить
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+		@if (vaccinations.Count > 0)
+		{
+			<div class="d-flex justify-content-between align-items-center mt-3 mb-4">
+				<div class="text-muted">
+					Всего записей о вакцинациях: @totalCount
+				</div>
+
+				@if (totalPages > 1)
+				{
+					<nav aria-label="Навигация по страницам">
+						<div class="d-flex align-items-center gap-2">
+							<button type="button"
+									class="btn btn-outline-primary btn-sm"
+									disabled="@(currentPage <= 1)"
+									@onclick="() => GoToPageAsync(currentPage - 1)">
+								Назад
+							</button>
+
+							<span>Страница @currentPage из @totalPages</span>
+
+							<button type="button"
+									class="btn btn-outline-primary btn-sm"
+									disabled="@(currentPage >= totalPages)"
+									@onclick="() => GoToPageAsync(currentPage + 1)">
+								Далее
+							</button>
+						</div>
+					</nav>
+				}
+			</div>
+		}
+    }
+</div>
+
+@if (isFormOpen)
+{
+    <div class="modal d-block"
+         tabindex="-1"
+         style="background-color: rgba(0,0,0,0.5);"
+         role="dialog">
+
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(isEditing ? "Редактирование вакцинации" : "Новая вакцинация")
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            @onclick="CloseForm">
+                    </button>
+                </div>
+
+                <div class="modal-body">
+
+                    @if (!isEditing)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Питомец *</label>
+
+                            <select class="form-select"
+                                    @bind="selectedPetId"
+                                    @bind:after="OnPetChanged">
+                                <option value="">Выберите питомца</option>
+
+                                @foreach (var pet in pets)
+                                {
+                                    var client = GetClient(pet.ClientId);
+
+                                    <option value="@pet.Id">
+                                        @pet.Name — @(client is null
+                                            ? "Владелец не найден"
+                                            : $"{client.LastName} {client.FirstName}")
+                                    </option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Питомец</label>
+
+                            <input class="form-control"
+                                   value="@GetPetName(selectedPetId)"
+                                   disabled />
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            Связанный визит
+                        </label>
+
+                        <select class="form-select"
+                                @bind="selectedVisitId">
+                            <option value="">Не привязывать к визиту</option>
+
+                            @foreach (var visit in GetPetVisits())
+                            {
+                                <option value="@visit.Id">
+                                    @GetVisitDescription(visit)
+                                </option>
+                            }
+                        </select>
+
+                        <div class="form-text">
+                            При необходимости можно связать вакцинацию с конкретным визитом.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Название вакцины *</label>
+
+                        <input class="form-control"
+                               @bind="vaccineName"
+                               placeholder="Например, Nobivac Rabies" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Номер партии</label>
+
+                        <input class="form-control"
+                               @bind="batchNumber"
+                               placeholder="Номер партии вакцины" />
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">
+                                Дата вакцинации *
+                            </label>
+
+                            <InputDate TValue="DateOnly"
+                                       class="form-control"
+                                       @bind-Value="vaccinatedAt" />
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">
+                                Следующая вакцинация
+                            </label>
+
+                            <InputDate TValue="DateOnly?"
+                                       class="form-control"
+                                       @bind-Value="nextDueAt" />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Заметки</label>
+
+                        <textarea class="form-control"
+                                  rows="3"
+                                  @bind="notes">
+                        </textarea>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary"
+                            @onclick="CloseForm">
+                        Отмена
+                    </button>
+
+                    <button class="btn btn-primary"
+                            @onclick="SaveVaccination">
+                        Сохранить
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<VaccinationDto> vaccinations = new();
+
+	private int currentPage = 1;
+	private const int pageSize = 10;
+	private int totalPages;
+	private int totalCount;
+
+    private List<PetDto> pets = new();
+    private List<ClientDto> clients = new();
+    private List<VisitDto> visits = new();
+    private List<AppointmentDto> appointments = new();
+
+    private bool isLoading = true;
+    private bool isFormOpen;
+    private bool isEditing;
+
+    private Guid? selectedPetId;
+    private Guid? selectedVisitId;
+    private Guid editingVaccinationId;
+
+    private string vaccineName = string.Empty;
+    private string batchNumber = string.Empty;
+    private DateOnly vaccinatedAt = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly? nextDueAt;
+    private string notes = string.Empty;
+
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            var vaccinationResult = await VaccinationManagement.GetAllAsync(
+				new PagedRequest
+				{
+					PageNumber = currentPage,
+					PageSize = pageSize
+				});
+
+            var petResult = await PetManagement.GetAllForSelectionAsync();
+			var clientResult = await ClientManagement.GetAllForSelectionAsync();
+            var visitResult = await VisitManagement.GetAllForSelectionAsync();
+			var appointmentResult = await AppointmentManagement.GetAllForSelectionAsync();
+
+            vaccinations = vaccinationResult.Items.ToList();
+            pets = petResult.ToList();
+            clients = clientResult.ToList();
+            visits = visitResult.ToList();
+            appointments = appointmentResult.ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Не удалось загрузить данные: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private PetDto? GetPet(Guid? id)
+    {
+        if (!id.HasValue)
+            return null;
+
+        return pets.FirstOrDefault(p => p.Id == id.Value);
+    }
+
+    private ClientDto? GetClient(Guid id)
+    {
+        return clients.FirstOrDefault(c => c.Id == id);
+    }
+
+    private string GetPetName(Guid? id)
+    {
+        return GetPet(id)?.Name ?? "Питомец не найден";
+    }
+
+    private List<VisitDto> GetPetVisits()
+    {
+        if (!selectedPetId.HasValue)
+            return new();
+
+        var appointmentIds = appointments
+            .Where(a => a.PetId == selectedPetId.Value)
+            .Select(a => a.Id)
+            .ToHashSet();
+
+        return visits
+            .Where(v =>
+                appointmentIds.Contains(v.AppointmentId) &&
+                (isEditing || !vaccinations.Any(
+                    vaccination => vaccination.VisitId == v.Id)))
+            .OrderByDescending(v => v.CreatedAt)
+            .ToList();
+    }
+
+    private string GetVisitDescription(VisitDto visit)
+    {
+        var appointment = appointments
+            .FirstOrDefault(a => a.Id == visit.AppointmentId);
+
+        if (appointment is null)
+            return $"Визит от {visit.CreatedAt:dd.MM.yyyy}";
+
+        return $"Визит от {appointment.StartAt:dd.MM.yyyy HH:mm}";
+    }
+
+    private void OnPetChanged()
+    {
+        selectedVisitId = null;
+    }
+
+    private void OpenCreateForm()
+    {
+        isEditing = false;
+        editingVaccinationId = Guid.Empty;
+
+        selectedPetId = null;
+        selectedVisitId = null;
+
+        vaccineName = string.Empty;
+        batchNumber = string.Empty;
+        vaccinatedAt = DateOnly.FromDateTime(DateTime.Today);
+        nextDueAt = null;
+        notes = string.Empty;
+
+        errorMessage = null;
+        isFormOpen = true;
+    }
+
+    private void OpenEditForm(VaccinationDto vaccination)
+    {
+        isEditing = true;
+
+        editingVaccinationId = vaccination.Id;
+        selectedPetId = vaccination.PetId;
+        selectedVisitId = vaccination.VisitId;
+
+        vaccineName = vaccination.VaccineName;
+        batchNumber = vaccination.BatchNumber;
+        vaccinatedAt = vaccination.VaccinatedAt;
+        nextDueAt = vaccination.NextDueAt;
+        notes = vaccination.Notes;
+
+        errorMessage = null;
+        isFormOpen = true;
+    }
+
+    private void CloseForm()
+    {
+        isFormOpen = false;
+    }
+
+    private async Task SaveVaccination()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            if (!selectedPetId.HasValue)
+            {
+                errorMessage = "Выберите питомца.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(vaccineName))
+            {
+                errorMessage = "Укажите название вакцины.";
+                return;
+            }
+
+            if (nextDueAt.HasValue && nextDueAt.Value < vaccinatedAt)
+            {
+                errorMessage =
+                    "Дата следующей вакцинации не может быть раньше текущей.";
+                return;
+            }
+
+            if (isEditing)
+            {
+                var dto = new UpdateVaccinationDto(
+                    editingVaccinationId,
+                    selectedVisitId,
+                    vaccineName.Trim(),
+                    batchNumber.Trim(),
+                    vaccinatedAt,
+                    nextDueAt,
+                    notes.Trim());
+
+                var updated = await VaccinationManagement.UpdateAsync(dto);
+
+                if (!updated)
+                {
+                    errorMessage = "Не удалось обновить вакцинацию.";
+                    return;
+                }
+            }
+            else
+            {
+                var dto = new CreateVaccinationDto(
+                    selectedPetId.Value,
+                    selectedVisitId,
+                    vaccineName.Trim(),
+                    batchNumber.Trim(),
+                    vaccinatedAt,
+                    nextDueAt,
+                    notes.Trim());
+
+                await VaccinationManagement.CreateAsync(dto);
+            }
+
+            CloseForm();
+            await LoadData();
+
+            successMessage = isEditing
+                ? "Вакцинация успешно обновлена."
+                : "Вакцинация успешно добавлена.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Не удалось сохранить вакцинацию: {ex.Message}";
+        }
+    }
+
+	private async Task GoToPageAsync(int page)
+	{
+		if (page < 1 || page > totalPages || page == currentPage)
+			return;
+
+		currentPage = page;
+		await LoadData();
+	}
+
+    private async Task DeleteVaccination(VaccinationDto vaccination)
+    {
+        var confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            "Вы действительно хотите удалить эту запись о вакцинации?");
+
+        if (!confirmed)
+            return;
+
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            var deleted = await VaccinationManagement.DeleteAsync(
+                vaccination.Id);
+
+            if (!deleted)
+            {
+                errorMessage = "Не удалось удалить запись о вакцинации.";
+                return;
+            }
+
+            await LoadData();
+
+            successMessage = "Запись о вакцинации успешно удалена.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Не удалось удалить вакцинацию: {ex.Message}";
+        }
+    }
+}

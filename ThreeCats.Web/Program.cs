@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using ThreeCats.Infrastructure.Data;
 using ThreeCats.Infrastructure;
 using ThreeCats.Application.Options;
+using Microsoft.AspNetCore.Identity;
+using ThreeCats.Infrastructure.Identity;
 
 namespace ThreeCats.Web
 {
@@ -13,9 +15,11 @@ namespace ThreeCats.Web
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
             builder.Services.AddRazorComponents()
-                .AddInteractiveServerComponents();
+            .AddInteractiveServerComponents(options =>
+            {
+                options.DetailedErrors = true;
+            });
 
             builder.Services.AddOptions<ClinicOptions>()
                 .Bind(builder.Configuration.GetSection(ClinicOptions.SectionName))
@@ -38,6 +42,11 @@ namespace ThreeCats.Web
                 await using var dbContext = await dbFactory.CreateDbContextAsync();
 
                 await dbContext.Database.MigrateAsync();
+
+                var roleManager = scope.ServiceProvider
+                    .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
+                await IdentitySeeder.SeedRolesAsync(roleManager);
             }
 
             // Configure the HTTP request pipeline.
