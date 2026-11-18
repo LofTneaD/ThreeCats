@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using ThreeCats.Application.Constants;
 
 namespace ThreeCats.Infrastructure.Identity;
 
@@ -6,10 +7,10 @@ public static class IdentitySeeder
 {
     private static readonly string[] Roles =
     [
-        "Client",
-        "Doctor",
-        "Moderator",
-        "Administrator"
+        UserRoles.Client,
+        UserRoles.Doctor,
+        UserRoles.Moderator,
+        UserRoles.Administrator
     ];
 
     public static async Task SeedRolesAsync(

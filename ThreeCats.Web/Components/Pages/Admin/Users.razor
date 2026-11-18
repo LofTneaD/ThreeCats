@@ -4,6 +4,8 @@
 @using ThreeCats.Application.DTOs.Users
 @using ThreeCats.Application.Interfaces.Users
 @using ThreeCats.Application.Constants
+@using ThreeCats.Application.Models.Pagination
+@using ThreeCats.Web.Components.Shared
 
 @inject IUserManagementService UserService
 
@@ -52,8 +54,8 @@
 
 				<div class="mb-3">
 					<label class="form-label">Номер телефона</label>
-					<InputText class="form-control"
-							   @bind-Value="newUser.PhoneNumber" />
+					<PhoneInput class="form-control"
+						@bind-Value="newUser.PhoneNumber" />
 					<ValidationMessage For="@(() => newUser.PhoneNumber)" />
 				</div>
 
@@ -139,6 +141,42 @@
 				</tbody>
 			</table>
 		</div>
+
+		@if (users is not null && users.Count > 0)
+		{
+			<div class="d-flex justify-content-between align-items-center mt-3 mb-4">
+				<div class="text-muted">
+					Всего пользователей: @totalCount
+				</div>
+
+				@if (totalPages > 1)
+				{
+					<nav aria-label="Навигация по страницам">
+						<div class="d-flex align-items-center gap-2">
+
+							<button type="button"
+									class="btn btn-outline-primary btn-sm"
+									disabled="@(currentPage <= 1)"
+									@onclick="() => GoToPageAsync(currentPage - 1)">
+								Назад
+							</button>
+
+							<span>
+								Страница @currentPage из @totalPages
+							</span>
+
+							<button type="button"
+									class="btn btn-outline-primary btn-sm"
+									disabled="@(currentPage >= totalPages)"
+									@onclick="() => GoToPageAsync(currentPage + 1)">
+								Далее
+							</button>
+
+						</div>
+					</nav>
+				}
+			</div>
+		}
 	}
 
 	@if (editingUser is not null)
@@ -177,8 +215,8 @@
 
 					<div class="mb-3">
 						<label class="form-label">Номер телефона</label>
-						<InputText class="form-control"
-								   @bind-Value="editingUser.PhoneNumber" />
+						<PhoneInput class="form-control"
+									@bind-Value="editingUser.PhoneNumber" />
 						<ValidationMessage For="@(() => editingUser.PhoneNumber)" />
 					</div>
 
@@ -232,6 +270,11 @@
 @code {
 	private List<UserDto>? users;
 
+	private int currentPage = 1;
+	private const int pageSize = 10;
+	private int totalPages;
+	private int totalCount;
+
 	private CreateUserModel newUser = new();
 
 	private string? message;
@@ -246,7 +289,41 @@
 
 	private async Task LoadUsersAsync()
 	{
-		users = (await UserService.GetAllAsync()).ToList();
+		var result = await UserService.GetAllAsync(
+			new PagedRequest
+			{
+				PageNumber = currentPage,
+				PageSize = pageSize
+			});
+
+		totalCount = result.TotalCount;
+		totalPages = result.TotalPages;
+
+		if (currentPage > totalPages)
+		{
+			currentPage = Math.Max(totalPages, 1);
+
+			if (totalPages > 0)
+			{
+				result = await UserService.GetAllAsync(
+					new PagedRequest
+					{
+						PageNumber = currentPage,
+						PageSize = pageSize
+					});
+			}
+		}
+
+		users = result.Items.ToList();
+	}
+
+	private async Task GoToPageAsync(int page)
+	{
+		if (page < 1 || page > totalPages || page == currentPage)
+			return;
+
+		currentPage = page;
+		await LoadUsersAsync();
 	}
 
 	private async Task CreateUserAsync()

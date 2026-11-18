@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ThreeCats.Application.DTOs.Vaccinations;
 using ThreeCats.Application.Interfaces.Vaccinations;
+using ThreeCats.Application.Models.Pagination;
 using ThreeCats.Domain.Entities;
 using ThreeCats.Infrastructure.Data;
 
@@ -10,15 +11,23 @@ public sealed class VaccinationManagementService(
     IDbContextFactory<ApplicationDbContext> contextFactory)
     : IVaccinationManagementService
 {
-    public async Task<List<VaccinationDto>> GetAllAsync(
+    public async Task<PagedResult<VaccinationDto>> GetAllAsync(
+        PagedRequest request,
         CancellationToken cancellationToken = default)
     {
         await using var context =
             await contextFactory.CreateDbContextAsync(cancellationToken);
 
-        return await context.Vaccinations
+        var query = context.Vaccinations
             .AsNoTracking()
             .OrderByDescending(v => v.VaccinatedAt)
+            .ThenByDescending(v => v.Id);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .Skip(request.Skip)
+            .Take(request.NormalizedPageSize)
             .Select(v => new VaccinationDto(
                 v.Id,
                 v.PetId,
@@ -29,6 +38,12 @@ public sealed class VaccinationManagementService(
                 v.NextDueAt,
                 v.Notes))
             .ToListAsync(cancellationToken);
+
+        return new PagedResult<VaccinationDto>(
+            items,
+            request.NormalizedPageNumber,
+            request.NormalizedPageSize,
+            totalCount);
     }
 
     public async Task<VaccinationDto?> GetByIdAsync(
@@ -70,11 +85,11 @@ public sealed class VaccinationManagementService(
 
         if (dto.VisitId.HasValue)
         {
-            var visitExists = await context.Visits
-                .AnyAsync(v => v.Id == dto.VisitId.Value, cancellationToken);
-
-            if (!visitExists)
-                throw new ArgumentException("Указанный визит не найден.");
+            await ValidateVisitBelongsToPetAsync(
+                context,
+                dto.VisitId.Value,
+                dto.PetId,
+                cancellationToken);
         }
 
         var vaccination = new Vaccination
@@ -112,11 +127,11 @@ public sealed class VaccinationManagementService(
 
         if (dto.VisitId.HasValue)
         {
-            var visitExists = await context.Visits
-                .AnyAsync(v => v.Id == dto.VisitId.Value, cancellationToken);
-
-            if (!visitExists)
-                throw new ArgumentException("Указанный визит не найден.");
+            await ValidateVisitBelongsToPetAsync(
+                context,
+                dto.VisitId.Value,
+                vaccination.PetId,
+                cancellationToken);
         }
 
         vaccination.VisitId = dto.VisitId;
@@ -158,6 +173,26 @@ public sealed class VaccinationManagementService(
         {
             throw new ArgumentException(
                 "Дата следующей вакцинации не может быть раньше даты текущей.");
+        }
+    }
+    private static async Task ValidateVisitBelongsToPetAsync(
+    ApplicationDbContext context,
+    Guid visitId,
+    Guid petId,
+    CancellationToken cancellationToken)
+    {
+        var visitPetId = await context.Visits
+            .Where(visit => visit.Id == visitId)
+            .Select(visit => (Guid?)visit.PetId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (visitPetId is null)
+            throw new ArgumentException("Указанный визит не найден.");
+
+        if (visitPetId.Value != petId)
+        {
+            throw new ArgumentException(
+                "Указанный визит не относится к выбранному животному.");
         }
     }
 }

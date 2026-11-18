@@ -1,10 +1,13 @@
+
 using ThreeCats.Application.DTOs.Appointments;
+using ThreeCats.Application.Models.Pagination;
 
 namespace ThreeCats.Application.Interfaces.Appointments;
 
 public interface IAppointmentManagementService
 {
-    Task<IReadOnlyList<AppointmentDto>> GetAllAsync(
+    Task<PagedResult<AppointmentDto>> GetAllAsync(
+        PagedRequest request,
         CancellationToken cancellationToken = default);
 
     Task<AppointmentDto?> GetByIdAsync(
@@ -21,5 +24,8 @@ public interface IAppointmentManagementService
 
     Task<bool> DeleteAsync(
         Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<AppointmentDto>> GetAllForSelectionAsync(
         CancellationToken cancellationToken = default);
 }

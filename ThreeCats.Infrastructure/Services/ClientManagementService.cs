@@ -1,4 +1,4 @@
-
+using ThreeCats.Application.Models.Pagination;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ThreeCats.Application.Constants;
@@ -7,34 +7,69 @@ using ThreeCats.Application.Interfaces.Services;
 using ThreeCats.Domain.Entities;
 using ThreeCats.Infrastructure.Data;
 using ThreeCats.Infrastructure.Identity;
+using ThreeCats.Application.Validation;
 
 namespace ThreeCats.Infrastructure.Services;
 
 public class ClientManagementService : IClientManagementService
 {
-    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
+    private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<IdentityRole<Guid>> _roleManager;
 
     public ClientManagementService(
-        IDbContextFactory<ApplicationDbContext> contextFactory,
+        ApplicationDbContext context,
         UserManager<ApplicationUser> userManager,
         RoleManager<IdentityRole<Guid>> roleManager)
     {
-        _contextFactory = contextFactory;
+        _context = context;
         _userManager = userManager;
         _roleManager = roleManager;
     }
 
-    public async Task<IReadOnlyList<ClientDto>> GetAllAsync(
+
+    public async Task<PagedResult<ClientDto>> GetAllAsync(
+        PagedRequest request,
         CancellationToken cancellationToken = default)
     {
-        await using var context =
-            await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var query =
+            from client in _context.Clients.AsNoTracking()
+            join user in _context.Users.AsNoTracking()
+                on client.UserId equals user.Id
+            orderby user.LastName, user.FirstName
+            select new ClientDto(
+                client.Id,
+                client.UserId,
+                user.LastName,
+                user.FirstName,
+                user.MiddleName,
+                user.PhoneNumber,
+                user.Email,
+                client.Address,
+                client.Notes,
+                client.IsActive
+            );
 
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .Skip(request.Skip)
+            .Take(request.NormalizedPageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<ClientDto>(
+            items,
+            request.NormalizedPageNumber,
+            request.NormalizedPageSize,
+            totalCount);
+    }
+
+    public async Task<IReadOnlyList<ClientDto>> GetAllForSelectionAsync(
+        CancellationToken cancellationToken = default)
+    {
         return await (
-            from client in context.Clients.AsNoTracking()
-            join user in context.Users.AsNoTracking()
+            from client in _context.Clients.AsNoTracking()
+            join user in _context.Users.AsNoTracking()
                 on client.UserId equals user.Id
             orderby user.LastName, user.FirstName
             select new ClientDto(
@@ -56,12 +91,9 @@ public class ClientManagementService : IClientManagementService
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        await using var context =
-            await _contextFactory.CreateDbContextAsync(cancellationToken);
-
         return await (
-            from client in context.Clients.AsNoTracking()
-            join user in context.Users.AsNoTracking()
+            from client in _context.Clients.AsNoTracking()
+            join user in _context.Users.AsNoTracking()
                 on client.UserId equals user.Id
             where client.Id == id
             select new ClientDto(
@@ -83,16 +115,19 @@ public class ClientManagementService : IClientManagementService
         CreateClientDto dto,
         CancellationToken cancellationToken = default)
     {
-        var roleExists = await _roleManager.RoleExistsAsync(
-            UserRoles.Client);
+        PhoneNumberValidator.Validate(dto.PhoneNumber);
+
+        var roleExists = await _roleManager.RoleExistsAsync(UserRoles.Client);
 
         if (!roleExists)
-            throw new InvalidOperationException(
-                "Роль CLIENT не найдена.");
+            throw new InvalidOperationException("Роль CLIENT не найдена.");
+
+        await using var transaction =
+            await _context.Database.BeginTransactionAsync(cancellationToken);
 
         var user = new ApplicationUser
         {
-            UserName = dto.PhoneNumber,
+            UserName = PhoneNumberHelper.NormalizeForUserName(dto.PhoneNumber),
             PhoneNumber = dto.PhoneNumber,
             Email = dto.Email,
             LastName = dto.LastName,
@@ -100,77 +135,49 @@ public class ClientManagementService : IClientManagementService
             MiddleName = dto.MiddleName
         };
 
-        var createResult = await _userManager.CreateAsync(
-            user,
-            dto.Password);
+        var createResult = await _userManager.CreateAsync(user, dto.Password);
 
         if (!createResult.Succeeded)
         {
             throw new InvalidOperationException(
                 string.Join("; ",
-                    createResult.Errors.Select(
-                        error => error.Description)));
+                    createResult.Errors.Select(error => error.Description)));
         }
 
-        var roleResult = await _userManager.AddToRoleAsync(
-            user,
-            UserRoles.Client);
+        var roleResult = await _userManager.AddToRoleAsync(user, UserRoles.Client);
 
         if (!roleResult.Succeeded)
         {
-            await _userManager.DeleteAsync(user);
-
             throw new InvalidOperationException(
                 string.Join("; ",
-                    roleResult.Errors.Select(
-                        error => error.Description)));
+                    roleResult.Errors.Select(error => error.Description)));
         }
 
-        try
+        var client = new Client
         {
-            await using var context =
-                await _contextFactory.CreateDbContextAsync(cancellationToken);
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            Address = dto.Address,
+            Notes = dto.Notes,
+            IsActive = dto.IsActive
+        };
 
-            var client = new Client
-            {
-                Id = Guid.NewGuid(),
-                UserId = user.Id,
-                Address = dto.Address,
-                Notes = dto.Notes,
-                IsActive = dto.IsActive
-            };
+        _context.Clients.Add(client);
 
-            context.Clients.Add(client);
+        await _context.SaveChangesAsync(cancellationToken);
 
-            await context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
-            return client.Id;
-        }
-        catch (Exception ex)
-        {
-            var rollbackResult = await _userManager.DeleteAsync(user);
-
-            var rollbackMessage = rollbackResult.Succeeded
-                ? string.Empty
-                : " Не удалось удалить созданную учётную запись: "
-                  + string.Join("; ",
-                      rollbackResult.Errors.Select(
-                          error => error.Description));
-
-            throw new InvalidOperationException(
-                "Не удалось создать профиль клиента." + rollbackMessage,
-                ex);
-        }
+        return client.Id;
     }
 
     public async Task<bool> UpdateAsync(
-        UpdateClientDto dto,
-        CancellationToken cancellationToken = default)
+    UpdateClientDto dto,
+    CancellationToken cancellationToken = default)
     {
-        await using var context =
-            await _contextFactory.CreateDbContextAsync(cancellationToken);
+        PhoneNumberValidator.Validate(dto.PhoneNumber);
 
-        var client = await context.Clients
+        var client = await _context.Clients
             .FirstOrDefaultAsync(
                 client => client.Id == dto.Id,
                 cancellationToken);
@@ -185,8 +192,10 @@ public class ClientManagementService : IClientManagementService
             throw new InvalidOperationException(
                 "Учётная запись клиента не найдена.");
 
-        // Телефон используется как UserName.
-        user.UserName = dto.PhoneNumber;
+        await using var transaction =
+            await _context.Database.BeginTransactionAsync(cancellationToken);
+
+        user.UserName = PhoneNumberHelper.NormalizeForUserName(dto.PhoneNumber);
         user.PhoneNumber = dto.PhoneNumber;
 
         user.Email = dto.Email;
@@ -201,15 +210,16 @@ public class ClientManagementService : IClientManagementService
         {
             throw new InvalidOperationException(
                 string.Join("; ",
-                    userUpdateResult.Errors.Select(
-                        error => error.Description)));
+                    userUpdateResult.Errors.Select(error => error.Description)));
         }
 
         client.Address = dto.Address;
         client.Notes = dto.Notes;
         client.IsActive = dto.IsActive;
 
-        await context.SaveChangesAsync(cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
 
         return true;
     }
@@ -218,10 +228,7 @@ public class ClientManagementService : IClientManagementService
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        await using var context =
-            await _contextFactory.CreateDbContextAsync(cancellationToken);
-
-        var client = await context.Clients
+        var client = await _context.Clients
             .FirstOrDefaultAsync(
                 client => client.Id == id,
                 cancellationToken);
@@ -229,9 +236,9 @@ public class ClientManagementService : IClientManagementService
         if (client is null)
             return false;
 
-        context.Clients.Remove(client);
+        _context.Clients.Remove(client);
 
-        await context.SaveChangesAsync(cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
 
         return true;
     }

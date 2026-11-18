@@ -3,6 +3,6 @@ namespace ThreeCats.Application.DTOs.Services;
 public sealed record UpdateServiceDto(
     Guid Id,
     string Name,
-    string Desctiption,
+    string Description,
     decimal Price,
     bool IsActive);

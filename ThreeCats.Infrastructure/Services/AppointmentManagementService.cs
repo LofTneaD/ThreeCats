@@ -3,6 +3,7 @@ using ThreeCats.Application.DTOs.Appointments;
 using ThreeCats.Application.Interfaces.Appointments;
 using ThreeCats.Domain.Entities;
 using ThreeCats.Infrastructure.Data;
+using ThreeCats.Application.Models.Pagination;
 
 namespace ThreeCats.Infrastructure.Services;
 
@@ -17,8 +18,8 @@ public class AppointmentManagementService
         _contextFactory = contextFactory;
     }
 
-    public async Task<IReadOnlyList<AppointmentDto>> GetAllAsync(
-        CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<AppointmentDto>> GetAllForSelectionAsync(
+    CancellationToken cancellationToken = default)
     {
         await using var context =
             await _contextFactory.CreateDbContextAsync(cancellationToken);
@@ -26,6 +27,7 @@ public class AppointmentManagementService
         return await context.Appointments
             .AsNoTracking()
             .OrderByDescending(appointment => appointment.StartAt)
+            .ThenByDescending(appointment => appointment.Id)
             .Select(appointment => new AppointmentDto(
                 appointment.Id,
                 appointment.ClientId,
@@ -40,6 +42,43 @@ public class AppointmentManagementService
                 appointment.Comment))
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<PagedResult<AppointmentDto>> GetAllAsync(
+        PagedRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await using var context =
+            await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+        var query = context.Appointments.AsNoTracking();
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(appointment => appointment.StartAt)
+            .Skip(request.Skip)
+            .Take(request.NormalizedPageSize)
+            .Select(appointment => new AppointmentDto(
+                appointment.Id,
+                appointment.ClientId,
+                appointment.PetId,
+                appointment.DoctorId,
+                appointment.ServiceId,
+                appointment.CreatedByUserId,
+                appointment.StartAt,
+                appointment.EndAt,
+                appointment.CreatedAt,
+                appointment.Status,
+                appointment.Comment))
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<AppointmentDto>(
+            items,
+            request.NormalizedPageNumber,
+            request.NormalizedPageSize,
+            totalCount);
+    }
+
 
     public async Task<AppointmentDto?> GetByIdAsync(
         Guid id,

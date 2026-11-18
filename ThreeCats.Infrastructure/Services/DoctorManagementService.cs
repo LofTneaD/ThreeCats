@@ -1,3 +1,4 @@
+using ThreeCats.Application.Models.Pagination;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ThreeCats.Application.Constants;
@@ -6,34 +7,69 @@ using ThreeCats.Application.Interfaces.Services;
 using ThreeCats.Domain.Entities;
 using ThreeCats.Infrastructure.Data;
 using ThreeCats.Infrastructure.Identity;
+using ThreeCats.Application.Validation;
 
 namespace ThreeCats.Infrastructure.Services;
 
 public class DoctorManagementService : IDoctorManagementService
 {
-    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
+    private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<IdentityRole<Guid>> _roleManager;
 
     public DoctorManagementService(
-        IDbContextFactory<ApplicationDbContext> contextFactory,
+        ApplicationDbContext context,
         UserManager<ApplicationUser> userManager,
         RoleManager<IdentityRole<Guid>> roleManager)
     {
-        _contextFactory = contextFactory;
+        _context = context;
         _userManager = userManager;
         _roleManager = roleManager;
     }
 
-    public async Task<IReadOnlyList<DoctorDto>> GetAllAsync(
+
+    public async Task<PagedResult<DoctorDto>> GetAllAsync(
+        PagedRequest request,
         CancellationToken cancellationToken = default)
     {
-        await using var context =
-            await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var query =
+            from doctor in _context.Doctors.AsNoTracking()
+            join user in _context.Users.AsNoTracking()
+                on doctor.UserId equals user.Id
+            orderby user.LastName, user.FirstName
+            select new DoctorDto(
+                doctor.Id,
+                doctor.UserId,
+                user.LastName,
+                user.FirstName,
+                user.MiddleName,
+                user.PhoneNumber,
+                user.Email,
+                doctor.Specialization,
+                doctor.Description,
+                doctor.IsActive
+            );
 
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .Skip(request.Skip)
+            .Take(request.NormalizedPageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<DoctorDto>(
+            items,
+            request.NormalizedPageNumber,
+            request.NormalizedPageSize,
+            totalCount);
+    }
+
+    public async Task<IReadOnlyList<DoctorDto>> GetAllForSelectionAsync(
+        CancellationToken cancellationToken = default)
+    {
         return await (
-            from doctor in context.Doctors.AsNoTracking()
-            join user in context.Users.AsNoTracking()
+            from doctor in _context.Doctors.AsNoTracking()
+            join user in _context.Users.AsNoTracking()
                 on doctor.UserId equals user.Id
             orderby user.LastName, user.FirstName
             select new DoctorDto(
@@ -55,12 +91,9 @@ public class DoctorManagementService : IDoctorManagementService
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        await using var context =
-            await _contextFactory.CreateDbContextAsync(cancellationToken);
-
         return await (
-            from doctor in context.Doctors.AsNoTracking()
-            join user in context.Users.AsNoTracking()
+            from doctor in _context.Doctors.AsNoTracking()
+            join user in _context.Users.AsNoTracking()
                 on doctor.UserId equals user.Id
             where doctor.Id == id
             select new DoctorDto(
@@ -82,14 +115,19 @@ public class DoctorManagementService : IDoctorManagementService
         CreateDoctorDto dto,
         CancellationToken cancellationToken = default)
     {
+        PhoneNumberValidator.Validate(dto.PhoneNumber);
+
         var roleExists = await _roleManager.RoleExistsAsync(UserRoles.Doctor);
 
         if (!roleExists)
             throw new InvalidOperationException("Роль DOCTOR не найдена.");
 
+        await using var transaction =
+            await _context.Database.BeginTransactionAsync(cancellationToken);
+
         var user = new ApplicationUser
         {
-            UserName = dto.PhoneNumber,
+            UserName = PhoneNumberHelper.NormalizeForUserName(dto.PhoneNumber),
             PhoneNumber = dto.PhoneNumber,
             Email = dto.Email,
             LastName = dto.LastName,
@@ -110,57 +148,36 @@ public class DoctorManagementService : IDoctorManagementService
 
         if (!roleResult.Succeeded)
         {
-            await _userManager.DeleteAsync(user);
-
             throw new InvalidOperationException(
                 string.Join("; ",
                     roleResult.Errors.Select(error => error.Description)));
         }
 
-        try
+        var doctor = new Doctor
         {
-            await using var context =
-                await _contextFactory.CreateDbContextAsync(cancellationToken);
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            Specialization = dto.Specialization,
+            Description = dto.Description,
+            IsActive = dto.IsActive
+        };
 
-            var doctor = new Doctor
-            {
-                Id = Guid.NewGuid(),
-                UserId = user.Id,
-                Specialization = dto.Specialization,
-                Description = dto.Description,
-                IsActive = dto.IsActive
-            };
+        _context.Doctors.Add(doctor);
 
-            context.Doctors.Add(doctor);
+        await _context.SaveChangesAsync(cancellationToken);
 
-            await context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
-            return doctor.Id;
-        }
-        catch (Exception ex)
-        {
-            var rollbackResult = await _userManager.DeleteAsync(user);
-
-            var rollbackMessage = rollbackResult.Succeeded
-                ? string.Empty
-                : " Не удалось удалить созданную учётную запись: "
-                  + string.Join("; ",
-                      rollbackResult.Errors.Select(error => error.Description));
-
-            throw new InvalidOperationException(
-                "Не удалось создать профиль врача." + rollbackMessage,
-                ex);
-        }
+        return doctor.Id;
     }
 
     public async Task<bool> UpdateAsync(
         UpdateDoctorDto dto,
         CancellationToken cancellationToken = default)
     {
-        await using var context =
-            await _contextFactory.CreateDbContextAsync(cancellationToken);
+        PhoneNumberValidator.Validate(dto.PhoneNumber);
 
-        var doctor = await context.Doctors
+        var doctor = await _context.Doctors
             .FirstOrDefaultAsync(
                 doctor => doctor.Id == dto.Id,
                 cancellationToken);
@@ -174,9 +191,10 @@ public class DoctorManagementService : IDoctorManagementService
             throw new InvalidOperationException(
                 "Учётная запись врача не найдена.");
 
-        // Телефон используется как UserName,
-        // поэтому обновляем оба поля.
-        user.UserName = dto.PhoneNumber;
+        await using var transaction =
+            await _context.Database.BeginTransactionAsync(cancellationToken);
+
+        user.UserName = PhoneNumberHelper.NormalizeForUserName(dto.PhoneNumber);
         user.PhoneNumber = dto.PhoneNumber;
 
         user.Email = dto.Email;
@@ -198,7 +216,9 @@ public class DoctorManagementService : IDoctorManagementService
         doctor.Description = dto.Description;
         doctor.IsActive = dto.IsActive;
 
-        await context.SaveChangesAsync(cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
 
         return true;
     }
@@ -207,10 +227,7 @@ public class DoctorManagementService : IDoctorManagementService
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        await using var context =
-            await _contextFactory.CreateDbContextAsync(cancellationToken);
-
-        var doctor = await context.Doctors
+        var doctor = await _context.Doctors
             .FirstOrDefaultAsync(
                 doctor => doctor.Id == id,
                 cancellationToken);
@@ -218,9 +235,9 @@ public class DoctorManagementService : IDoctorManagementService
         if (doctor is null)
             return false;
 
-        context.Doctors.Remove(doctor);
+        _context.Doctors.Remove(doctor);
 
-        await context.SaveChangesAsync(cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
 
         return true;
     }

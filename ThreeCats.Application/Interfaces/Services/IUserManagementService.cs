@@ -1,11 +1,16 @@
 using ThreeCats.Application.DTOs.Users;
+using ThreeCats.Application.Models.Pagination;
 
 namespace ThreeCats.Application.Interfaces.Users;
 
 public interface IUserManagementService
 {
-    Task<IReadOnlyList<UserDto>> GetAllAsync(
+    Task<PagedResult<UserDto>> GetAllAsync(
+        PagedRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<UserDto>> GetAllForSelectionAsync(
+    CancellationToken cancellationToken = default);
 
     Task<UserDto?> GetByIdAsync(
         Guid id,

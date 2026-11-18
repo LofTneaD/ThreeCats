@@ -1,10 +1,15 @@
 using ThreeCats.Application.DTOs.Visits;
+using ThreeCats.Application.Models.Pagination;
 
 namespace ThreeCats.Application.Interfaces.Visits;
 
 public interface IVisitManagementService
 {
-    Task<IReadOnlyList<VisitDto>> GetAllAsync(
+    Task<PagedResult<VisitDto>> GetAllAsync(
+        PagedRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<VisitDto>> GetAllForSelectionAsync(
         CancellationToken cancellationToken = default);
 
     Task<VisitDto?> GetByIdAsync(

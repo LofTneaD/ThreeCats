@@ -1,4 +1,3 @@
-
 @page "/admin/vaccinations"
 
 @using ThreeCats.Application.DTOs.Vaccinations
@@ -11,6 +10,7 @@
 @using ThreeCats.Application.Interfaces.Services
 @using ThreeCats.Application.Interfaces.Visits
 @using ThreeCats.Application.Interfaces.Appointments
+@using ThreeCats.Application.Models.Pagination
 
 @inject IVaccinationManagementService VaccinationManagement
 @inject IPetManagementService PetManagement
@@ -164,6 +164,38 @@
                 </tbody>
             </table>
         </div>
+
+		@if (vaccinations.Count > 0)
+		{
+			<div class="d-flex justify-content-between align-items-center mt-3 mb-4">
+				<div class="text-muted">
+					Всего записей о вакцинациях: @totalCount
+				</div>
+
+				@if (totalPages > 1)
+				{
+					<nav aria-label="Навигация по страницам">
+						<div class="d-flex align-items-center gap-2">
+							<button type="button"
+									class="btn btn-outline-primary btn-sm"
+									disabled="@(currentPage <= 1)"
+									@onclick="() => GoToPageAsync(currentPage - 1)">
+								Назад
+							</button>
+
+							<span>Страница @currentPage из @totalPages</span>
+
+							<button type="button"
+									class="btn btn-outline-primary btn-sm"
+									disabled="@(currentPage >= totalPages)"
+									@onclick="() => GoToPageAsync(currentPage + 1)">
+								Далее
+							</button>
+						</div>
+					</nav>
+				}
+			</div>
+		}
     }
 </div>
 
@@ -314,6 +346,12 @@
 
 @code {
     private List<VaccinationDto> vaccinations = new();
+
+	private int currentPage = 1;
+	private const int pageSize = 10;
+	private int totalPages;
+	private int totalCount;
+
     private List<PetDto> pets = new();
     private List<ClientDto> clients = new();
     private List<VisitDto> visits = new();
@@ -348,13 +386,19 @@
             isLoading = true;
             errorMessage = null;
 
-            var vaccinationResult = await VaccinationManagement.GetAllAsync();
-            var petResult = await PetManagement.GetAllAsync();
-            var clientResult = await ClientManagement.GetAllAsync();
-            var visitResult = await VisitManagement.GetAllAsync();
-            var appointmentResult = await AppointmentManagement.GetAllAsync();
+            var vaccinationResult = await VaccinationManagement.GetAllAsync(
+				new PagedRequest
+				{
+					PageNumber = currentPage,
+					PageSize = pageSize
+				});
 
-            vaccinations = vaccinationResult.ToList();
+            var petResult = await PetManagement.GetAllForSelectionAsync();
+			var clientResult = await ClientManagement.GetAllForSelectionAsync();
+            var visitResult = await VisitManagement.GetAllForSelectionAsync();
+			var appointmentResult = await AppointmentManagement.GetAllForSelectionAsync();
+
+            vaccinations = vaccinationResult.Items.ToList();
             pets = petResult.ToList();
             clients = clientResult.ToList();
             visits = visitResult.ToList();
@@ -535,6 +579,15 @@
             errorMessage = $"Не удалось сохранить вакцинацию: {ex.Message}";
         }
     }
+
+	private async Task GoToPageAsync(int page)
+	{
+		if (page < 1 || page > totalPages || page == currentPage)
+			return;
+
+		currentPage = page;
+		await LoadData();
+	}
 
     private async Task DeleteVaccination(VaccinationDto vaccination)
     {

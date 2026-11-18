@@ -5,6 +5,8 @@ using ThreeCats.Application.DTOs.Users;
 using ThreeCats.Application.Interfaces.Users;
 using ThreeCats.Infrastructure.Data;
 using ThreeCats.Domain.Entities;
+using ThreeCats.Application.Models.Pagination;
+using ThreeCats.Application.Validation;
 
 namespace ThreeCats.Infrastructure.Identity;
 
@@ -12,33 +14,44 @@ public class UserManagementService : IUserManagementService
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<IdentityRole<Guid>> _roleManager;
-    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
+    private readonly ApplicationDbContext _context;
 
     public UserManagementService(
-        UserManager<ApplicationUser> userManager,
-        RoleManager<IdentityRole<Guid>> roleManager,
-        IDbContextFactory<ApplicationDbContext> contextFactory)
+    UserManager<ApplicationUser> userManager,
+    RoleManager<IdentityRole<Guid>> roleManager,
+    ApplicationDbContext context)
     {
         _userManager = userManager;
         _roleManager = roleManager;
-        _contextFactory = contextFactory;
+        _context = context;
     }
 
-    public async Task<IReadOnlyList<UserDto>> GetAllAsync(
+    public async Task<PagedResult<UserDto>> GetAllAsync(
+        PagedRequest request,
         CancellationToken cancellationToken = default)
     {
-        await using var context =
-            await _contextFactory.CreateDbContextAsync(cancellationToken);
-
-        var doctorUserIds = await context.Doctors
+        var query = _userManager.Users
             .AsNoTracking()
-            .Select(doctor => doctor.UserId)
-            .ToHashSetAsync(cancellationToken);
-
-        var users = await _userManager.Users
             .OrderBy(user => user.LastName)
             .ThenBy(user => user.FirstName)
+            .ThenBy(user => user.Id);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var users = await query
+            .Skip(request.Skip)
+            .Take(request.NormalizedPageSize)
             .ToListAsync(cancellationToken);
+
+        var userIds = users
+            .Select(user => user.Id)
+            .ToHashSet();
+
+        var doctorUserIds = await _context.Doctors
+            .AsNoTracking()
+            .Where(doctor => userIds.Contains(doctor.UserId))
+            .Select(doctor => doctor.UserId)
+            .ToHashSetAsync(cancellationToken);
 
         var result = new List<UserDto>();
 
@@ -62,6 +75,40 @@ public class UserManagementService : IUserManagementService
                 user.MiddleName));
         }
 
+        return new PagedResult<UserDto>(
+            result,
+            request.NormalizedPageNumber,
+            request.NormalizedPageSize,
+            totalCount);
+    }
+
+    public async Task<IReadOnlyList<UserDto>> GetAllForSelectionAsync(
+    CancellationToken cancellationToken = default)
+    {
+        var users = await _userManager.Users
+            .AsNoTracking()
+            .OrderBy(user => user.LastName)
+            .ThenBy(user => user.FirstName)
+            .ThenBy(user => user.Id)
+            .ToListAsync(cancellationToken);
+
+        var result = new List<UserDto>();
+
+        foreach (var user in users)
+        {
+            var roles = await _userManager.GetRolesAsync(user);
+
+            result.Add(new UserDto(
+                user.Id,
+                user.UserName,
+                user.Email,
+                user.PhoneNumber,
+                roles.FirstOrDefault() ?? string.Empty,
+                user.LastName,
+                user.FirstName,
+                user.MiddleName));
+        }
+
         return result;
     }
 
@@ -74,12 +121,9 @@ public class UserManagementService : IUserManagementService
         if (user is null)
             return null;
 
-        var roles = await _userManager.GetRolesAsync(user);
+        var roles = await _userManager.GetRolesAsync(user);              
 
-        await using var context =
-            await _contextFactory.CreateDbContextAsync(cancellationToken);
-
-        var hasDoctorProfile = await context.Doctors
+        var hasDoctorProfile = await _context.Doctors
             .AnyAsync(
                 doctor => doctor.UserId == user.Id,
                 cancellationToken);
@@ -103,6 +147,8 @@ public class UserManagementService : IUserManagementService
         CreateUserDto dto,
         CancellationToken cancellationToken = default)
     {
+        PhoneNumberValidator.Validate(dto.PhoneNumber);
+
         var roleExists = await _roleManager.RoleExistsAsync(dto.Role);
 
         if (!roleExists)
@@ -113,9 +159,12 @@ public class UserManagementService : IUserManagementService
             throw new InvalidOperationException(
                 "Для создания врача используйте раздел «Врачи».");
 
+        await using var transaction =
+            await _context.Database.BeginTransactionAsync(cancellationToken);
+
         var user = new ApplicationUser
         {
-            UserName = dto.PhoneNumber,
+            UserName = PhoneNumberHelper.NormalizeForUserName(dto.PhoneNumber),
             PhoneNumber = dto.PhoneNumber,
             Email = dto.Email,
             LastName = dto.LastName,
@@ -136,8 +185,6 @@ public class UserManagementService : IUserManagementService
 
         if (!roleResult.Succeeded)
         {
-            await _userManager.DeleteAsync(user);
-
             throw new InvalidOperationException(
                 string.Join("; ",
                     roleResult.Errors.Select(error => error.Description)));
@@ -148,6 +195,8 @@ public class UserManagementService : IUserManagementService
             await EnsureClientProfileAsync(user.Id, cancellationToken);
         }
 
+        await transaction.CommitAsync(cancellationToken);
+
         return user.Id;
     }
 
@@ -155,17 +204,19 @@ public class UserManagementService : IUserManagementService
         UpdateUserDto dto,
         CancellationToken cancellationToken = default)
     {
+        PhoneNumberValidator.Validate(dto.PhoneNumber);
+
         var user = await _userManager.FindByIdAsync(dto.Id.ToString());
 
         if (user is null)
             return false;
 
+        await using var transaction =
+            await _context.Database.BeginTransactionAsync(cancellationToken);
+
         var currentRoles = await _userManager.GetRolesAsync(user);
 
-        await using var context =
-            await _contextFactory.CreateDbContextAsync(cancellationToken);
-
-        var hasDoctorProfile = await context.Doctors
+        var hasDoctorProfile = await _context.Doctors
             .AnyAsync(
                 doctor => doctor.UserId == user.Id,
                 cancellationToken);
@@ -211,7 +262,7 @@ public class UserManagementService : IUserManagementService
         user.FirstName = dto.FirstName;
         user.MiddleName = dto.MiddleName;
 
-        user.UserName = dto.PhoneNumber;
+        user.UserName = PhoneNumberHelper.NormalizeForUserName(dto.PhoneNumber);
         user.PhoneNumber = dto.PhoneNumber;
 
         user.Email = dto.Email;
@@ -236,6 +287,7 @@ public class UserManagementService : IUserManagementService
                         addResult.Errors.Select(error => error.Description)));
             }
         }
+
         if (dto.Role == UserRoles.Client)
         {
             await EnsureClientProfileAsync(user.Id, cancellationToken);
@@ -259,6 +311,8 @@ public class UserManagementService : IUserManagementService
             }
         }
 
+        await transaction.CommitAsync(cancellationToken);
+
         return true;
     }
 
@@ -266,10 +320,7 @@ public class UserManagementService : IUserManagementService
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        await using var context =
-            await _contextFactory.CreateDbContextAsync(cancellationToken);
-
-        var hasDoctorProfile = await context.Doctors
+        var hasDoctorProfile = await _context.Doctors
             .AnyAsync(
                 doctor => doctor.UserId == id,
                 cancellationToken);
@@ -301,16 +352,13 @@ public class UserManagementService : IUserManagementService
     Guid userId,
     CancellationToken cancellationToken = default)
     {
-        await using var context =
-            await _contextFactory.CreateDbContextAsync(cancellationToken);
-
-        var profileExists = await context.Clients
+        var profileExists = await _context.Clients
             .AnyAsync(client => client.UserId == userId, cancellationToken);
 
         if (profileExists)
             return;
 
-        context.Clients.Add(new Client
+        _context.Clients.Add(new Client
         {
             Id = Guid.NewGuid(),
             UserId = userId,
@@ -319,6 +367,6 @@ public class UserManagementService : IUserManagementService
             IsActive = true
         });
 
-        await context.SaveChangesAsync(cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
     }
 }

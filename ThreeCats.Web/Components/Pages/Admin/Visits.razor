@@ -9,6 +9,7 @@
 @using ThreeCats.Application.Interfaces.Pets
 @using ThreeCats.Application.Interfaces.Services
 @using ThreeCats.Application.Interfaces.Visits
+@using ThreeCats.Application.Models.Pagination
 
 @inject IVisitManagementService VisitManagement
 @inject IAppointmentManagementService AppointmentManagement
@@ -171,6 +172,38 @@
 				</tbody>
 			</table>
 		</div>
+
+		@if (visits.Count > 0)
+		{
+			<div class="d-flex justify-content-between align-items-center mt-3 mb-4">
+				<div class="text-muted">
+					Всего посещений: @totalCount
+				</div>
+
+				@if (totalPages > 1)
+				{
+					<nav aria-label="Навигация по страницам">
+						<div class="d-flex align-items-center gap-2">
+							<button type="button"
+									class="btn btn-outline-primary btn-sm"
+									disabled="@(currentPage <= 1)"
+									@onclick="() => GoToPageAsync(currentPage - 1)">
+								Назад
+							</button>
+
+							<span>Страница @currentPage из @totalPages</span>
+
+							<button type="button"
+									class="btn btn-outline-primary btn-sm"
+									disabled="@(currentPage >= totalPages)"
+									@onclick="() => GoToPageAsync(currentPage + 1)">
+								Далее
+							</button>
+						</div>
+					</nav>
+				}
+			</div>
+		}
 	}
 </div>
 
@@ -307,6 +340,12 @@
 
 @code {
 	private List<VisitDto> visits = new();
+
+	private int currentPage = 1;
+	private const int pageSize = 10;
+	private int totalPages;
+	private int totalCount;
+
 	private List<AppointmentDto> appointments = new();
 	private List<DoctorDto> doctors = new();
 	private List<PetDto> pets = new();
@@ -343,13 +382,18 @@
 			isLoading = true;
 			errorMessage = null;
 
-			var visitResult = await VisitManagement.GetAllAsync();
-			var appointmentResult = await AppointmentManagement.GetAllAsync();
-			var doctorResult = await DoctorManagement.GetAllAsync();
-			var petResult = await PetManagement.GetAllAsync();
-			var clientResult = await ClientManagement.GetAllAsync();
+			var visitResult = await VisitManagement.GetAllAsync(
+				new PagedRequest
+				{
+					PageNumber = currentPage,
+					PageSize = pageSize
+				});
+			var appointmentResult = await AppointmentManagement.GetAllForSelectionAsync();
+			var doctorResult = await DoctorManagement.GetAllForSelectionAsync();
+			var petResult = await PetManagement.GetAllForSelectionAsync();
+			var clientResult = await ClientManagement.GetAllForSelectionAsync();
 
-			visits = visitResult.ToList();
+			visits = visitResult.Items.ToList();
 			appointments = appointmentResult.ToList();
 			doctors = doctorResult.ToList();
 			pets = petResult.ToList();
@@ -365,6 +409,15 @@
 		{
 			isLoading = false;
 		}
+	}
+
+	private async Task GoToPageAsync(int page)
+	{
+		if (page < 1 || page > totalPages || page == currentPage)
+			return;
+
+		currentPage = page;
+		await LoadData();
 	}
 
 	private void UpdateAvailableAppointments()

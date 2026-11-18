@@ -1,10 +1,15 @@
 using ThreeCats.Application.DTOs.Clients;
+using ThreeCats.Application.Models.Pagination;
 
 namespace ThreeCats.Application.Interfaces.Services;
 
 public interface IClientManagementService
 {
-    Task<IReadOnlyList<ClientDto>> GetAllAsync(
+    Task<PagedResult<ClientDto>> GetAllAsync(
+        PagedRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ClientDto>> GetAllForSelectionAsync(
         CancellationToken cancellationToken = default);
 
     Task<ClientDto?> GetByIdAsync(

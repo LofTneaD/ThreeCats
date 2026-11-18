@@ -13,6 +13,7 @@
 @using ThreeCats.Application.Interfaces.Users
 @using ThreeCats.Domain.Enums
 @using ThreeCats.Application.Constants
+@using ThreeCats.Application.Models.Pagination
 
 @inject IAppointmentManagementService AppointmentManagement
 @inject IClientManagementService ClientManagement
@@ -129,6 +130,40 @@
 				</tbody>
 			</table>
 		</div>
+		@if (totalPages > 1)
+		{
+			<div class="d-flex justify-content-between align-items-center mt-3">
+				<span class="text-muted">
+					Всего записей: @totalCount
+				</span>
+
+				<div class="d-flex align-items-center gap-2">
+					<button type="button"
+							class="btn btn-outline-primary"
+							disabled="@(currentPage <= 1 || isLoading)"
+							@onclick="() => ChangePageAsync(currentPage - 1)">
+						Назад
+					</button>
+
+					<span>
+						Страница @currentPage из @totalPages
+					</span>
+
+					<button type="button"
+							class="btn btn-outline-primary"
+							disabled="@(currentPage >= totalPages || isLoading)"
+							@onclick="() => ChangePageAsync(currentPage + 1)">
+						Далее
+					</button>
+				</div>
+			</div>
+		}
+		else if (totalCount > 0)
+		{
+			<div class="text-muted mt-3">
+				Всего записей: @totalCount
+			</div>
+		}
 	}
 
 	@if (showForm)
@@ -396,6 +431,12 @@
 	private string? errorMessage;
 	private string? successMessage;
 
+	private int currentPage = 1;
+	private const int pageSize = 10;
+
+	private int totalCount;
+	private int totalPages;
+
 	protected override async Task OnInitializedAsync()
 	{
 		await LoadDataAsync();
@@ -408,15 +449,23 @@
 
 		try
 		{
-			var appointmentResult = await AppointmentManagement.GetAllAsync();
-			var clientResult = await ClientManagement.GetAllAsync();
-			var petResult = await PetManagement.GetAllAsync();
-			var doctorResult = await DoctorManagement.GetAllAsync();
-			var serviceResult = await ServiceManagement.GetAllAsync();
-			var userResult = await UserManagement.GetAllAsync();
+			var appointmentResult = await AppointmentManagement.GetAllAsync(
+				new PagedRequest
+				{
+					PageNumber = currentPage,
+					PageSize = pageSize
+				});
+			var clientResult = await ClientManagement.GetAllForSelectionAsync();
+			var petResult = await PetManagement.GetAllForSelectionAsync();
+			var doctorResult = await DoctorManagement.GetAllForSelectionAsync();
+			var serviceResult = await ServiceManagement.GetAllForSelectionAsync();
+			var userResult = await UserManagement.GetAllForSelectionAsync();
 			users = userResult.ToList();
 
-			appointments = appointmentResult.ToList();
+			appointments = appointmentResult.Items.ToList();
+			totalCount = appointmentResult.TotalCount;
+			totalPages = appointmentResult.TotalPages;
+
 			clientProfiles = clientResult.ToList();
 			pets = petResult.ToList();
 			doctors = doctorResult.ToList();
@@ -786,5 +835,14 @@
 					[nameof(StartAt)]);
 			}
 		}
+	}
+	private async Task ChangePageAsync(int pageNumber)
+	{
+		if (pageNumber < 1 || pageNumber > totalPages)
+			return;
+
+		currentPage = pageNumber;
+
+		await LoadDataAsync();
 	}
 }

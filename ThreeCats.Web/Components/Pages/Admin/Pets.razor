@@ -8,6 +8,7 @@
 @using ThreeCats.Application.Interfaces.Services
 @using ThreeCats.Application.Interfaces.Users
 @using ThreeCats.Domain.Enums
+@using ThreeCats.Application.Models.Pagination
 
 @inject IPetManagementService PetManagement
 @inject IClientManagementService ClientManagement
@@ -116,6 +117,38 @@
                 </tbody>
             </table>
         </div>
+
+		@if (pets.Count > 0)
+		{
+			<div class="d-flex justify-content-between align-items-center mt-3 mb-4">
+				<div class="text-muted">
+					Всего питомцев: @totalCount
+				</div>
+
+				@if (totalPages > 1)
+				{
+					<nav aria-label="Навигация по страницам">
+						<div class="d-flex align-items-center gap-2">
+							<button type="button"
+									class="btn btn-outline-primary btn-sm"
+									disabled="@(currentPage <= 1)"
+									@onclick="() => GoToPageAsync(currentPage - 1)">
+								Назад
+							</button>
+
+							<span>Страница @currentPage из @totalPages</span>
+
+							<button type="button"
+									class="btn btn-outline-primary btn-sm"
+									disabled="@(currentPage >= totalPages)"
+									@onclick="() => GoToPageAsync(currentPage + 1)">
+								Далее
+							</button>
+						</div>
+					</nav>
+				}
+			</div>
+		}
     }
 
     @if (showForm)
@@ -304,6 +337,12 @@
 
 @code {
     private List<PetDto> pets = [];
+
+	private int currentPage = 1;
+	private const int pageSize = 10;
+	private int totalPages;
+	private int totalCount;
+
     private List<ClientOption> clients = [];
 
     private bool isLoading = true;
@@ -331,11 +370,16 @@
 
         try
         {
-            var petResult = await PetManagement.GetAllAsync();
-            var clientResult = await ClientManagement.GetAllAsync();
-            var userResult = await UserManagement.GetAllAsync();
+            var petResult = await PetManagement.GetAllAsync(
+			new PagedRequest
+			{
+				PageNumber = currentPage,
+				PageSize = pageSize
+			});
+            var clientResult = await ClientManagement.GetAllForSelectionAsync();
+            var userResult = await UserManagement.GetAllForSelectionAsync();
 
-            pets = petResult.ToList();
+            pets = petResult.Items.ToList();
 
             var usersById = userResult.ToDictionary(
                 user => user.Id);
@@ -363,6 +407,15 @@
             isLoading = false;
         }
     }
+
+	private async Task GoToPageAsync(int page)
+	{
+		if (page < 1 || page > totalPages || page == currentPage)
+			return;
+
+		currentPage = page;
+		await LoadDataAsync();
+	}
 
     private string GetClientName(Guid clientId)
     {

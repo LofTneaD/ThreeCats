@@ -3,6 +3,7 @@ using ThreeCats.Application.DTOs.Pets;
 using ThreeCats.Application.Interfaces.Pets;
 using ThreeCats.Domain.Entities;
 using ThreeCats.Infrastructure.Data;
+using ThreeCats.Application.Models.Pagination;
 
 namespace ThreeCats.Infrastructure.Services;
 
@@ -16,7 +17,43 @@ public class PetManagementService : IPetManagementService
         _contextFactory = contextFactory;
     }
 
-    public async Task<IReadOnlyList<PetDto>> GetAllAsync(
+    public async Task<PagedResult<PetDto>> GetAllAsync(
+    PagedRequest request,
+    CancellationToken cancellationToken = default)
+    {
+        await using var context =
+            await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+        var query = context.Pets
+            .AsNoTracking()
+            .OrderBy(pet => pet.Name)
+            .ThenBy(pet => pet.Id);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .Skip(request.Skip)
+            .Take(request.NormalizedPageSize)
+            .Select(pet => new PetDto(
+                pet.Id,
+                pet.ClientId,
+                pet.Name,
+                pet.Species,
+                pet.Breed,
+                pet.Sex,
+                pet.BirthDate,
+                pet.Weight,
+                pet.Notes))
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<PetDto>(
+            items,
+            request.NormalizedPageNumber,
+            request.NormalizedPageSize,
+            totalCount);
+    }
+
+    public async Task<IReadOnlyList<PetDto>> GetAllForSelectionAsync(
         CancellationToken cancellationToken = default)
     {
         await using var context =
@@ -25,6 +62,7 @@ public class PetManagementService : IPetManagementService
         return await context.Pets
             .AsNoTracking()
             .OrderBy(pet => pet.Name)
+            .ThenBy(pet => pet.Id)
             .Select(pet => new PetDto(
                 pet.Id,
                 pet.ClientId,

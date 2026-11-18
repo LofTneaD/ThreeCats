@@ -1,10 +1,12 @@
 using ThreeCats.Application.DTOs.Vaccinations;
+using ThreeCats.Application.Models.Pagination;
 
 namespace ThreeCats.Application.Interfaces.Vaccinations;
 
 public interface IVaccinationManagementService
 {
-    Task<List<VaccinationDto>> GetAllAsync(
+    Task<PagedResult<VaccinationDto>> GetAllAsync(
+        PagedRequest request,
         CancellationToken cancellationToken = default);
 
     Task<VaccinationDto?> GetByIdAsync(

@@ -1,9 +1,10 @@
-
 @page "/admin/clients"
 
 @using System.ComponentModel.DataAnnotations
 @using ThreeCats.Application.Interfaces.Services
 @using ThreeCats.Application.DTOs.Clients
+@using ThreeCats.Application.Models.Pagination
+@using ThreeCats.Web.Components.Shared
 
 @inject IClientManagementService ClientManagement
 
@@ -118,6 +119,39 @@
                 </tbody>
             </table>
         </div>
+
+		<div class="d-flex justify-content-between align-items-center mt-3">
+            <div class="text-muted">
+                Всего клиентов: @totalCount
+            </div>
+
+            @if (totalPages > 1)
+            {
+                <nav aria-label="Навигация по страницам">
+                    <div class="d-flex align-items-center gap-2">
+
+                        <button type="button"
+                                class="btn btn-outline-primary btn-sm"
+                                disabled="@(currentPage <= 1 || isLoading)"
+                                @onclick="() => GoToPageAsync(currentPage - 1)">
+                            Назад
+                        </button>
+
+                        <span>
+                            Страница @currentPage из @totalPages
+                        </span>
+
+                        <button type="button"
+                                class="btn btn-outline-primary btn-sm"
+                                disabled="@(currentPage >= totalPages || isLoading)"
+                                @onclick="() => GoToPageAsync(currentPage + 1)">
+                            Далее
+                        </button>
+
+                    </div>
+                </nav>
+            }
+        </div>
     }
 
     @if (showForm)
@@ -175,8 +209,8 @@
                     <div class="mb-3">
                         <label class="form-label">Номер телефона</label>
 
-                        <InputText class="form-control"
-                                   @bind-Value="formModel.PhoneNumber" />
+                        <PhoneInput class="form-control"
+								@bind-Value="formModel.PhoneNumber" />
 
                         <ValidationMessage
                             For="@(() => formModel.PhoneNumber)" />
@@ -297,6 +331,11 @@
 @code {
     private List<ClientDto> clients = [];
 
+	private int currentPage = 1;
+	private const int pageSize = 10;
+	private int totalPages;
+	private int totalCount;
+
     private bool isLoading = true;
     private bool isSaving;
     private bool showForm;
@@ -316,25 +355,57 @@
     }
 
     private async Task LoadClientsAsync()
+{
+    isLoading = true;
+    errorMessage = null;
+
+    try
     {
-        isLoading = true;
-        errorMessage = null;
+        var result = await ClientManagement.GetAllAsync(
+            new PagedRequest
+            {
+                PageNumber = currentPage,
+                PageSize = pageSize
+            });
 
-        try
-        {
-            var result = await ClientManagement.GetAllAsync();
+        totalCount = result.TotalCount;
+        totalPages = result.TotalPages;
 
-            clients = result.ToList();
-        }
-        catch (Exception ex)
+        if (currentPage > totalPages)
         {
-            errorMessage = $"Не удалось загрузить список клиентов: {ex.Message}";
+            currentPage = Math.Max(totalPages, 1);
+
+            if (totalPages > 0)
+            {
+                result = await ClientManagement.GetAllAsync(
+                    new PagedRequest
+                    {
+                        PageNumber = currentPage,
+                        PageSize = pageSize
+                    });
+            }
         }
-        finally
-        {
-            isLoading = false;
-        }
+
+        clients = result.Items.ToList();
     }
+    catch (Exception ex)
+    {
+        errorMessage = $"Не удалось загрузить список клиентов: {ex.Message}";
+    }
+    finally
+    {
+        isLoading = false;
+    }
+}
+
+	private async Task GoToPageAsync(int page)
+	{
+		if (page < 1 || page > totalPages || page == currentPage)
+			return;
+
+		currentPage = page;
+		await LoadClientsAsync();
+	}
 
     private void StartCreate()
     {

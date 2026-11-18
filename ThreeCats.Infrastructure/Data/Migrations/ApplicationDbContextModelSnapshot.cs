@@ -383,7 +383,8 @@ namespace ThreeCats.Web.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -401,7 +402,7 @@ namespace ThreeCats.Web.Migrations
 
                     b.ToTable("Services", t =>
                         {
-                            t.HasCheckConstraint("CK_Service_Price_NonNegative", "\"Price\" >= 0");
+                            t.HasCheckConstraint("CK_Service_Price_Positive", "\"Price\" > 0");
                         });
                 });
 

@@ -3,6 +3,7 @@ using ThreeCats.Application.DTOs.Visits;
 using ThreeCats.Application.Interfaces.Visits;
 using ThreeCats.Domain.Entities;
 using ThreeCats.Infrastructure.Data;
+using ThreeCats.Application.Models.Pagination;
 
 namespace ThreeCats.Infrastructure.Services;
 
@@ -16,7 +17,43 @@ public class VisitManagementService : IVisitManagementService
         _contextFactory = contextFactory;
     }
 
-    public async Task<IReadOnlyList<VisitDto>> GetAllAsync(
+    public async Task<PagedResult<VisitDto>> GetAllAsync(
+    PagedRequest request,
+    CancellationToken cancellationToken = default)
+    {
+        await using var context =
+            await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+        var query = context.Visits
+            .AsNoTracking()
+            .OrderByDescending(visit => visit.CreatedAt)
+            .ThenBy(visit => visit.Id);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .Skip(request.Skip)
+            .Take(request.NormalizedPageSize)
+            .Select(visit => new VisitDto(
+                visit.Id,
+                visit.AppointmentId,
+                visit.DoctorId,
+                visit.Complaints,
+                visit.Diagnosis,
+                visit.Treatment,
+                visit.Recommendations,
+                visit.Notes,
+                visit.CreatedAt))
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<VisitDto>(
+            items,
+            request.NormalizedPageNumber,
+            request.NormalizedPageSize,
+            totalCount);
+    }
+
+    public async Task<IReadOnlyList<VisitDto>> GetAllForSelectionAsync(
         CancellationToken cancellationToken = default)
     {
         await using var context =
@@ -25,6 +62,7 @@ public class VisitManagementService : IVisitManagementService
         return await context.Visits
             .AsNoTracking()
             .OrderByDescending(visit => visit.CreatedAt)
+            .ThenBy(visit => visit.Id)
             .Select(visit => new VisitDto(
                 visit.Id,
                 visit.AppointmentId,

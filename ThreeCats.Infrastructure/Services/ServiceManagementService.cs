@@ -3,6 +3,8 @@ using ThreeCats.Application.DTOs.Services;
 using ThreeCats.Application.Interfaces.Services;
 using ThreeCats.Domain.Entities;
 using ThreeCats.Infrastructure.Data;
+using ThreeCats.Application.Validation;
+using ThreeCats.Application.Models.Pagination;
 
 namespace ThreeCats.Infrastructure.Services
 {
@@ -15,14 +17,48 @@ namespace ThreeCats.Infrastructure.Services
             _contextFactory = contextFactory;
         }
 
-        public async Task<IReadOnlyList<ServiceDto>> GetAllAsync(
+        public async Task<PagedResult<ServiceDto>> GetAllAsync(
+            PagedRequest request,
             CancellationToken cancellationToken = default)
         {
-            await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+            await using var context =
+                await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+            var query = context.Services
+                .AsNoTracking()
+                .OrderBy(service => service.Name)
+                .ThenBy(service => service.Id);
+
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            var items = await query
+                .Skip(request.Skip)
+                .Take(request.NormalizedPageSize)
+                .Select(service => new ServiceDto(
+                    service.Id,
+                    service.Name,
+                    service.Description,
+                    service.Price,
+                    service.IsActive))
+                .ToListAsync(cancellationToken);
+
+            return new PagedResult<ServiceDto>(
+                items,
+                request.NormalizedPageNumber,
+                request.NormalizedPageSize,
+                totalCount);
+        }
+
+        public async Task<IReadOnlyList<ServiceDto>> GetAllForSelectionAsync(
+            CancellationToken cancellationToken = default)
+        {
+            await using var context =
+                await _contextFactory.CreateDbContextAsync(cancellationToken);
 
             return await context.Services
                 .AsNoTracking()
                 .OrderBy(service => service.Name)
+                .ThenBy(service => service.Id)
                 .Select(service => new ServiceDto(
                     service.Id,
                     service.Name,
@@ -52,6 +88,8 @@ namespace ThreeCats.Infrastructure.Services
             CreateServiceDto dto,
             CancellationToken cancellationToken = default)
         {
+            ServiceValidator.Validate(dto);
+
             await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
 
             var service = new Service
@@ -74,6 +112,8 @@ namespace ThreeCats.Infrastructure.Services
             UpdateServiceDto dto,
             CancellationToken cancellationToken = default)
         {
+            ServiceValidator.Validate(dto);
+
             await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
 
             var service = await context.Services
@@ -83,7 +123,7 @@ namespace ThreeCats.Infrastructure.Services
                 return false;
 
             service.Name = dto.Name;
-            service.Description = dto.Desctiption;
+            service.Description = dto.Description;
             service.Price = dto.Price;
             service.IsActive = dto.IsActive;
 

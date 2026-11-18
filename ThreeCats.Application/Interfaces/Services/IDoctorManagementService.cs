@@ -1,10 +1,15 @@
 using ThreeCats.Application.DTOs.Doctors;
+using ThreeCats.Application.Models.Pagination;
 
 namespace ThreeCats.Application.Interfaces.Services;
 
 public interface IDoctorManagementService
 {
-    Task<IReadOnlyList<DoctorDto>> GetAllAsync(
+    Task<PagedResult<DoctorDto>> GetAllAsync(
+        PagedRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<DoctorDto>> GetAllForSelectionAsync(
         CancellationToken cancellationToken = default);
 
     Task<DoctorDto?> GetByIdAsync(

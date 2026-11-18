@@ -272,7 +272,7 @@
             isLoading = true;
             errorMessage = null;
 
-            var doctorResult = await DoctorManagement.GetAllAsync();
+            var doctorResult = await DoctorManagement.GetAllForSelectionAsync();
             var scheduleResult = await ScheduleManagement.GetAllAsync();
 
             doctors = doctorResult

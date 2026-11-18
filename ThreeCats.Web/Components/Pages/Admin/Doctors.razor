@@ -3,6 +3,8 @@
 @using System.ComponentModel.DataAnnotations
 @using ThreeCats.Application.Interfaces.Services
 @using ThreeCats.Application.DTOs.Doctors
+@using ThreeCats.Application.Models.Pagination
+@using ThreeCats.Web.Components.Shared
 
 @inject IDoctorManagementService DoctorManagement
 
@@ -108,7 +110,40 @@
                 </tbody>
             </table>
         </div>
-    }
+
+		<div class="d-flex justify-content-between align-items-center mt-3">
+			<div class="text-muted">
+				Всего врачей: @totalCount
+			</div>
+
+			@if (totalPages > 1)
+			{
+				<nav aria-label="Навигация по страницам">
+					<div class="d-flex align-items-center gap-2">
+
+						<button type="button"
+								class="btn btn-outline-primary btn-sm"
+								disabled="@(currentPage <= 1 || isLoading)"
+								@onclick="() => GoToPageAsync(currentPage - 1)">
+							Назад
+						</button>
+
+						<span>
+							Страница @currentPage из @totalPages
+						</span>
+
+						<button type="button"
+								class="btn btn-outline-primary btn-sm"
+								disabled="@(currentPage >= totalPages || isLoading)"
+								@onclick="() => GoToPageAsync(currentPage + 1)">
+							Далее
+						</button>
+
+					</div>
+				</nav>
+			}
+		</div>
+	}
 
     @if (showForm)
     {
@@ -163,8 +198,8 @@
                     <div class="mb-3">
                         <label class="form-label">Номер телефона</label>
 
-                        <InputText class="form-control"
-                                   @bind-Value="formModel.PhoneNumber" />
+                        <PhoneInput class="form-control"
+								@bind-Value="formModel.PhoneNumber" />
 
                         <ValidationMessage For="@(() => formModel.PhoneNumber)" />
                     </div>
@@ -268,6 +303,11 @@
 @code {
     private List<DoctorDto> doctors = [];
 
+	private int currentPage = 1;
+	private const int pageSize = 10;
+	private int totalPages;
+	private int totalCount;
+
     private bool isLoading = true;
     private bool isSaving;
     private bool showForm;
@@ -286,26 +326,58 @@
         await LoadDoctorsAsync();
     }
 
-    private async Task LoadDoctorsAsync()
-    {
-        isLoading = true;
-        errorMessage = null;
+	private async Task LoadDoctorsAsync()
+	{
+		isLoading = true;
+		errorMessage = null;
 
-        try
-        {
-            var result = await DoctorManagement.GetAllAsync();
+		try
+		{
+			var result = await DoctorManagement.GetAllAsync(
+				new PagedRequest
+				{
+					PageNumber = currentPage,
+					PageSize = pageSize
+				});
 
-            doctors = result.ToList();
-        }
-        catch (Exception)
-        {
-            errorMessage = "Не удалось загрузить список врачей.";
-        }
-        finally
-        {
-            isLoading = false;
-        }
-    }
+			totalCount = result.TotalCount;
+			totalPages = result.TotalPages;
+
+			if (currentPage > totalPages)
+			{
+				currentPage = Math.Max(totalPages, 1);
+
+				if (totalPages > 0)
+				{
+					result = await DoctorManagement.GetAllAsync(
+						new PagedRequest
+						{
+							PageNumber = currentPage,
+							PageSize = pageSize
+						});
+				}
+			}
+
+			doctors = result.Items.ToList();
+		}
+		catch (Exception)
+		{
+			errorMessage = "Не удалось загрузить список врачей.";
+		}
+		finally
+		{
+			isLoading = false;
+		}
+	}
+
+	private async Task GoToPageAsync(int page)
+	{
+		if (page < 1 || page > totalPages || page == currentPage)
+			return;
+
+		currentPage = page;
+		await LoadDoctorsAsync();
+	}
 
     private void StartCreate()
     {

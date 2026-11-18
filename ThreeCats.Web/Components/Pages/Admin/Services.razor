@@ -3,6 +3,7 @@
 @using System.ComponentModel.DataAnnotations
 @using ThreeCats.Application.Interfaces.Services
 @using ThreeCats.Application.DTOs.Services
+@using ThreeCats.Application.Models.Pagination
 
 @inject IServiceManagementService ServiceManagement
 
@@ -101,6 +102,38 @@
                 </tbody>
             </table>
         </div>
+
+		@if (services.Count > 0)
+		{
+			<div class="d-flex justify-content-between align-items-center mt-3 mb-4">
+				<div class="text-muted">
+					Всего услуг: @totalCount
+				</div>
+
+				@if (totalPages > 1)
+				{
+					<nav aria-label="Навигация по страницам">
+						<div class="d-flex align-items-center gap-2">
+							<button type="button"
+									class="btn btn-outline-primary btn-sm"
+									disabled="@(currentPage <= 1)"
+									@onclick="() => GoToPageAsync(currentPage - 1)">
+								Назад
+							</button>
+
+							<span>Страница @currentPage из @totalPages</span>
+
+							<button type="button"
+									class="btn btn-outline-primary btn-sm"
+									disabled="@(currentPage >= totalPages)"
+									@onclick="() => GoToPageAsync(currentPage + 1)">
+								Далее
+							</button>
+						</div>
+					</nav>
+				}
+			</div>
+		}
     }
 
     @if (showForm)
@@ -204,6 +237,11 @@
 @code {
     private List<ServiceDto> services = [];
 
+	private int currentPage = 1;
+	private const int pageSize = 10;
+	private int totalPages;
+	private int totalCount;
+
     private bool isLoading = true;
     private bool isSaving;
     private bool showForm;
@@ -223,25 +261,57 @@
     }
 
     private async Task LoadServicesAsync()
-    {
-        isLoading = true;
-        errorMessage = null;
+	{
+		isLoading = true;
+		errorMessage = null;
 
-        try
-        {
-            var result = await ServiceManagement.GetAllAsync();
+		try
+		{
+			var result = await ServiceManagement.GetAllAsync(
+				new PagedRequest
+				{
+					PageNumber = currentPage,
+					PageSize = pageSize
+				});
 
-            services = result.ToList();
-        }
-        catch (Exception)
-        {
-            errorMessage = "Не удалось загрузить список услуг.";
-        }
-        finally
-        {
-            isLoading = false;
-        }
-    }
+			totalCount = result.TotalCount;
+			totalPages = result.TotalPages;
+
+			if (currentPage > totalPages)
+			{
+				currentPage = Math.Max(totalPages, 1);
+
+				if (totalPages > 0)
+				{
+					result = await ServiceManagement.GetAllAsync(
+						new PagedRequest
+						{
+							PageNumber = currentPage,
+							PageSize = pageSize
+						});
+				}
+			}
+
+			services = result.Items.ToList();
+		}
+		catch (Exception)
+		{
+			errorMessage = "Не удалось загрузить список услуг.";
+		}
+		finally
+		{
+			isLoading = false;
+		}
+	}
+
+	private async Task GoToPageAsync(int page)
+	{
+		if (page < 1 || page > totalPages || page == currentPage)
+			return;
+
+		currentPage = page;
+		await LoadServicesAsync();
+	}
 
     private void StartCreate()
     {
@@ -328,9 +398,14 @@
 
             await LoadServicesAsync();
         }
+		catch (ValidationException ex)
+		{
+			errorMessage = ex.Message;
+		}
         catch (Exception)
         {
             errorMessage = "Не удалось сохранить услугу.";
+
         }
         finally
         {
@@ -385,8 +460,8 @@
 	private sealed class ServiceFormModel : IValidatableObject
 	{
 		[Required(ErrorMessage = "Введите название услуги.")]
-		[StringLength(200,
-			ErrorMessage = "Название не должно превышать 200 символов.")]
+		[StringLength(150,
+			ErrorMessage = "Название не должно превышать 150 символов.")]
 		public string Name { get; set; } = string.Empty;
 
 		[StringLength(2000,
@@ -407,10 +482,17 @@
 					[nameof(Price)]);
 			}
 
-			if (Price > 999999999.99m)
+			if (Price > 99_999_999.99m)
 			{
 				yield return new ValidationResult(
-					"Стоимость слишком велика.",
+					"Стоимость не должна превышать 99 999 999,99.",
+					[nameof(Price)]);
+			}
+
+			if (decimal.Round(Price, 2) != Price)
+			{
+				yield return new ValidationResult(
+					"Стоимость не должна содержать больше двух знаков после запятой.",
 					[nameof(Price)]);
 			}
 		}
