@@ -1,30 +1,25 @@
-using ThreeCats.Application.Models.Pagination;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using ThreeCats.Application.Constants;
 using ThreeCats.Application.DTOs.Doctors;
 using ThreeCats.Application.Interfaces.Services;
+using ThreeCats.Application.Models.Pagination;
+using ThreeCats.Application.Validation;
 using ThreeCats.Domain.Entities;
 using ThreeCats.Infrastructure.Data;
 using ThreeCats.Infrastructure.Identity;
-using ThreeCats.Application.Validation;
 
 namespace ThreeCats.Infrastructure.Services;
 
 public class DoctorManagementService : IDoctorManagementService
 {
-    private readonly ApplicationDbContext _context;
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly RoleManager<IdentityRole<Guid>> _roleManager;
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public DoctorManagementService(
-        ApplicationDbContext context,
-        UserManager<ApplicationUser> userManager,
-        RoleManager<IdentityRole<Guid>> roleManager)
+    public DoctorManagementService(IServiceScopeFactory scopeFactory)
     {
-        _context = context;
-        _userManager = userManager;
-        _roleManager = roleManager;
+        _scopeFactory = scopeFactory;
     }
 
 
@@ -32,6 +27,17 @@ public class DoctorManagementService : IDoctorManagementService
         PagedRequest request,
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         var query =
             from doctor in _context.Doctors.AsNoTracking()
             join user in _context.Users.AsNoTracking()
@@ -67,6 +73,17 @@ public class DoctorManagementService : IDoctorManagementService
     public async Task<IReadOnlyList<DoctorDto>> GetAllForSelectionAsync(
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         return await (
             from doctor in _context.Doctors.AsNoTracking()
             join user in _context.Users.AsNoTracking()
@@ -91,6 +108,17 @@ public class DoctorManagementService : IDoctorManagementService
         Guid id,
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         return await (
             from doctor in _context.Doctors.AsNoTracking()
             join user in _context.Users.AsNoTracking()
@@ -115,6 +143,17 @@ public class DoctorManagementService : IDoctorManagementService
         CreateDoctorDto dto,
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         PhoneNumberValidator.Validate(dto.PhoneNumber);
 
         var roleExists = await _roleManager.RoleExistsAsync(UserRoles.Doctor);
@@ -175,6 +214,17 @@ public class DoctorManagementService : IDoctorManagementService
         UpdateDoctorDto dto,
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         PhoneNumberValidator.Validate(dto.PhoneNumber);
 
         var doctor = await _context.Doctors
@@ -227,6 +277,17 @@ public class DoctorManagementService : IDoctorManagementService
         Guid id,
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         var doctor = await _context.Doctors
             .FirstOrDefaultAsync(
                 doctor => doctor.Id == id,

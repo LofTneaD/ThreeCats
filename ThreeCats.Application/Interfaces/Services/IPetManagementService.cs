@@ -27,4 +27,9 @@ public interface IPetManagementService
     Task<bool> DeleteAsync(
         Guid id,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<PetDto>> SearchForSelectionAsync(
+        string? searchTerm,
+        int limit = 20,
+        CancellationToken cancellationToken = default);
 }

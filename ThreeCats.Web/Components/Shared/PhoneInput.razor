@@ -1,53 +1,40 @@
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
 @inherits InputBase<string>
 
-<input @attributes="AdditionalAttributes"
+<input @ref="_inputElement"
+	   @attributes="AdditionalAttributes"
 	   class="@CssClass"
-	   type="tel"
-	   inputmode="tel"
+	   type="text"
+	   inputmode="numeric"
 	   autocomplete="tel"
+	   maxlength="18"
 	   placeholder="+7 (___) ___-__-__"
 	   value="@CurrentValueAsString"
 	   @oninput="HandleInput" />
 
 @code {
+	[Inject]
+	private IJSRuntime JS { get; set; } = default!;
+
+	private ElementReference _inputElement;
+	private IJSObjectReference? _module;
+
 	private void HandleInput(ChangeEventArgs args)
 	{
-		CurrentValueAsString = FormatPhone(args.Value?.ToString());
+		CurrentValueAsString = args.Value?.ToString() ?? string.Empty;
 	}
 
-	private static string FormatPhone(string? value)
+	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
-		var digits = new string(
-			(value ?? string.Empty)
-				.Where(char.IsDigit)
-				.ToArray());
+		if (!firstRender)
+			return;
 
-		if (digits.Length == 0)
-			return string.Empty;
+		_module = await JS.InvokeAsync<IJSObjectReference>(
+			"import",
+			"./js/phoneInput.js");
 
-		if (digits.StartsWith('8'))
-			digits = "7" + digits[1..];
-		else if (!digits.StartsWith('7'))
-			digits = "7" + digits;
-
-		if (digits.Length > 11)
-			return value ?? string.Empty;
-
-		var result = "+7";
-
-		if (digits.Length > 1)
-			result += " (" + digits.Substring(1, Math.Min(3, digits.Length - 1));
-
-		if (digits.Length >= 5)
-			result += ") " + digits.Substring(4, Math.Min(3, digits.Length - 4));
-
-		if (digits.Length >= 8)
-			result += "-" + digits.Substring(7, Math.Min(2, digits.Length - 7));
-
-		if (digits.Length >= 11)
-			result += "-" + digits.Substring(9, 2);
-
-		return result;
+		await _module.InvokeVoidAsync("attach", _inputElement);
 	}
 
 	protected override bool TryParseValueFromString(
@@ -58,5 +45,21 @@
 		result = value ?? string.Empty;
 		validationErrorMessage = null;
 		return true;
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		if (_module is null)
+			return;
+
+		try
+		{
+			await _module.InvokeVoidAsync("detach", _inputElement);
+			await _module.DisposeAsync();
+		}
+		catch (JSDisconnectedException)
+		{
+			
+		}
 	}
 }

@@ -27,4 +27,9 @@ public interface IVisitManagementService
     Task<bool> DeleteAsync(
         Guid id,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<VisitDto>> GetForVaccinationSelectionAsync(
+        Guid petId,
+        Guid? currentVaccinationId = null,
+        CancellationToken cancellationToken = default);
 }

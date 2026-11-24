@@ -8,30 +8,34 @@ using ThreeCats.Domain.Entities;
 using ThreeCats.Infrastructure.Data;
 using ThreeCats.Infrastructure.Identity;
 using ThreeCats.Application.Validation;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ThreeCats.Infrastructure.Services;
 
 public class ClientManagementService : IClientManagementService
-{
-    private readonly ApplicationDbContext _context;
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly RoleManager<IdentityRole<Guid>> _roleManager;
+{    
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public ClientManagementService(
-        ApplicationDbContext context,
-        UserManager<ApplicationUser> userManager,
-        RoleManager<IdentityRole<Guid>> roleManager)
+    public ClientManagementService(IServiceScopeFactory scopeFactory)
     {
-        _context = context;
-        _userManager = userManager;
-        _roleManager = roleManager;
+        _scopeFactory = scopeFactory;
     }
-
 
     public async Task<PagedResult<ClientDto>> GetAllAsync(
         PagedRequest request,
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         var query =
             from client in _context.Clients.AsNoTracking()
             join user in _context.Users.AsNoTracking()
@@ -67,6 +71,17 @@ public class ClientManagementService : IClientManagementService
     public async Task<IReadOnlyList<ClientDto>> GetAllForSelectionAsync(
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         return await (
             from client in _context.Clients.AsNoTracking()
             join user in _context.Users.AsNoTracking()
@@ -91,6 +106,17 @@ public class ClientManagementService : IClientManagementService
         Guid id,
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         return await (
             from client in _context.Clients.AsNoTracking()
             join user in _context.Users.AsNoTracking()
@@ -115,6 +141,17 @@ public class ClientManagementService : IClientManagementService
         CreateClientDto dto,
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         PhoneNumberValidator.Validate(dto.PhoneNumber);
 
         var roleExists = await _roleManager.RoleExistsAsync(UserRoles.Client);
@@ -175,6 +212,17 @@ public class ClientManagementService : IClientManagementService
     UpdateClientDto dto,
     CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         PhoneNumberValidator.Validate(dto.PhoneNumber);
 
         var client = await _context.Clients
@@ -228,6 +276,17 @@ public class ClientManagementService : IClientManagementService
         Guid id,
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         var client = await _context.Clients
             .FirstOrDefaultAsync(
                 client => client.Id == id,

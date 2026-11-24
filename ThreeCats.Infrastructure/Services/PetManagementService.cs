@@ -175,4 +175,40 @@ public class PetManagementService : IPetManagementService
 
         return true;
     }
+
+    public async Task<IReadOnlyList<PetDto>> SearchForSelectionAsync(
+        string? searchTerm,
+        int limit = 20,
+        CancellationToken cancellationToken = default)
+    {
+        await using var context =
+            await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+        var query = context.Pets.AsNoTracking();
+        var normalizedSearch = searchTerm?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(normalizedSearch))
+        {
+            query = query.Where(pet =>
+                pet.Name.Contains(normalizedSearch) ||
+                pet.Species.Contains(normalizedSearch) ||
+                pet.Breed.Contains(normalizedSearch));
+        }
+
+        return await query
+            .OrderBy(pet => pet.Name)
+            .ThenBy(pet => pet.Id)
+            .Take(Math.Clamp(limit, 1, 50))
+            .Select(pet => new PetDto(
+                pet.Id,
+                pet.ClientId,
+                pet.Name,
+                pet.Species,
+                pet.Breed,
+                pet.Sex,
+                pet.BirthDate,
+                pet.Weight,
+                pet.Notes))
+            .ToListAsync(cancellationToken);
+    }
 }

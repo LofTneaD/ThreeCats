@@ -1,35 +1,40 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using ThreeCats.Application.Constants;
 using ThreeCats.Application.DTOs.Users;
 using ThreeCats.Application.Interfaces.Users;
-using ThreeCats.Infrastructure.Data;
-using ThreeCats.Domain.Entities;
 using ThreeCats.Application.Models.Pagination;
 using ThreeCats.Application.Validation;
+using ThreeCats.Domain.Entities;
+using ThreeCats.Infrastructure.Data;
 
 namespace ThreeCats.Infrastructure.Identity;
 
 public class UserManagementService : IUserManagementService
 {
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly RoleManager<IdentityRole<Guid>> _roleManager;
-    private readonly ApplicationDbContext _context;
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public UserManagementService(
-    UserManager<ApplicationUser> userManager,
-    RoleManager<IdentityRole<Guid>> roleManager,
-    ApplicationDbContext context)
+    public UserManagementService(IServiceScopeFactory scopeFactory)
     {
-        _userManager = userManager;
-        _roleManager = roleManager;
-        _context = context;
+        _scopeFactory = scopeFactory;
     }
 
     public async Task<PagedResult<UserDto>> GetAllAsync(
         PagedRequest request,
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         var query = _userManager.Users
             .AsNoTracking()
             .OrderBy(user => user.LastName)
@@ -83,8 +88,19 @@ public class UserManagementService : IUserManagementService
     }
 
     public async Task<IReadOnlyList<UserDto>> GetAllForSelectionAsync(
-    CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         var users = await _userManager.Users
             .AsNoTracking()
             .OrderBy(user => user.LastName)
@@ -116,6 +132,17 @@ public class UserManagementService : IUserManagementService
         Guid id,
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         var user = await _userManager.FindByIdAsync(id.ToString());
 
         if (user is null)
@@ -147,6 +174,17 @@ public class UserManagementService : IUserManagementService
         CreateUserDto dto,
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         PhoneNumberValidator.Validate(dto.PhoneNumber);
 
         var roleExists = await _roleManager.RoleExistsAsync(dto.Role);
@@ -204,6 +242,17 @@ public class UserManagementService : IUserManagementService
         UpdateUserDto dto,
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         PhoneNumberValidator.Validate(dto.PhoneNumber);
 
         var user = await _userManager.FindByIdAsync(dto.Id.ToString());
@@ -320,6 +369,17 @@ public class UserManagementService : IUserManagementService
         Guid id,
         CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         var hasDoctorProfile = await _context.Doctors
             .AnyAsync(
                 doctor => doctor.UserId == id,
@@ -349,9 +409,20 @@ public class UserManagementService : IUserManagementService
         return true;
     }
     private async Task EnsureClientProfileAsync(
-    Guid userId,
-    CancellationToken cancellationToken = default)
+        Guid userId,
+        CancellationToken cancellationToken = default)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var _context = scope.ServiceProvider
+            .GetRequiredService<ApplicationDbContext>();
+
+        var _userManager = scope.ServiceProvider
+            .GetRequiredService<UserManager<ApplicationUser>>();
+
+        var _roleManager = scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
         var profileExists = await _context.Clients
             .AnyAsync(client => client.UserId == userId, cancellationToken);
 

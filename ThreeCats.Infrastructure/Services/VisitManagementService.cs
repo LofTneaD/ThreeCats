@@ -187,7 +187,6 @@ public class VisitManagementService : IVisitManagementService
         if (visit is null)
             return false;
 
-        // Не удаляем посещение, если существуют результаты обследований.
         var hasResults = await context.VisitResults
             .AnyAsync(
                 result => result.VisitId == id,
@@ -201,5 +200,37 @@ public class VisitManagementService : IVisitManagementService
         await context.SaveChangesAsync(cancellationToken);
 
         return true;
+    }
+
+    public async Task<IReadOnlyList<VisitDto>> GetForVaccinationSelectionAsync(
+        Guid petId,
+        Guid? currentVaccinationId = null,
+        CancellationToken cancellationToken = default)
+    {
+        await using var context =
+            await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+        var query = context.Visits
+            .AsNoTracking()
+            .Where(visit => visit.PetId == petId &&
+                !context.Vaccinations.Any(vaccination =>
+                    vaccination.VisitId == visit.Id &&
+                    (currentVaccinationId == null ||
+                     vaccination.Id != currentVaccinationId)));
+
+        return await query
+            .OrderByDescending(visit => visit.CreatedAt)
+            .ThenBy(visit => visit.Id)
+            .Select(visit => new VisitDto(
+                visit.Id,
+                visit.AppointmentId,
+                visit.DoctorId,
+                visit.Complaints,
+                visit.Diagnosis,
+                visit.Treatment,
+                visit.Recommendations,
+                visit.Notes,
+                visit.CreatedAt))
+            .ToListAsync(cancellationToken);
     }
 }
