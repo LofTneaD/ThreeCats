@@ -53,10 +53,46 @@ export function attach(element) {
     };
 
     const inputHandler = () => {
-        const formatted = formatPhone(element.value);
+        const originalValue = element.value;
+        const selectionStart = element.selectionStart;
+        const selectionEnd = element.selectionEnd;
+        const selectionDirection = element.selectionDirection;
 
-        if (element.value !== formatted) {
+        const originalDigits = originalValue.replace(/\D/g, '');
+
+        const addedCountryCode =
+            originalDigits.length > 0 &&
+            originalDigits[0] !== '7' &&
+            originalDigits[0] !== '8';
+
+        const digitsBeforeStart =
+            countDigitsBefore(originalValue, selectionStart) +
+            (addedCountryCode ? 1 : 0);
+
+        const digitsBeforeEnd =
+            countDigitsBefore(originalValue, selectionEnd) +
+            (addedCountryCode ? 1 : 0);
+
+        const formatted = formatPhone(originalValue);
+
+        if (originalValue !== formatted) {
             element.value = formatted;
+
+            const newSelectionStart = getPositionAfterDigits(
+                formatted,
+                digitsBeforeStart
+            );
+
+            const newSelectionEnd = getPositionAfterDigits(
+                formatted,
+                digitsBeforeEnd
+            );
+
+            element.setSelectionRange(
+                newSelectionStart,
+                newSelectionEnd,
+                selectionDirection
+            );
         }
     };
 
@@ -87,4 +123,28 @@ export function detach(element) {
     );
 
     handlers.delete(element);
+}
+
+function countDigitsBefore(value, position) {
+    return value.slice(0, position).replace(/\D/g, '').length;
+}
+
+function getPositionAfterDigits(value, digitCount) {
+    if (digitCount === 0) {
+        return 0;
+    }
+
+    let count = 0;
+
+    for (let i = 0; i < value.length; i++) {
+        if (/\d/.test(value[i])) {
+            count++;
+
+            if (count === digitCount) {
+                return i + 1;
+            }
+        }
+    }
+
+    return value.length;
 }

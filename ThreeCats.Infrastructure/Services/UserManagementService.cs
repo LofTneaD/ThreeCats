@@ -230,7 +230,10 @@ public class UserManagementService : IUserManagementService
 
         if (dto.Role == UserRoles.Client)
         {
-            await EnsureClientProfileAsync(user.Id, cancellationToken);
+            await EnsureClientProfileAsync(
+                _context,
+                user.Id,
+                cancellationToken);
         }
 
         await transaction.CommitAsync(cancellationToken);
@@ -339,7 +342,10 @@ public class UserManagementService : IUserManagementService
 
         if (dto.Role == UserRoles.Client)
         {
-            await EnsureClientProfileAsync(user.Id, cancellationToken);
+            await EnsureClientProfileAsync(
+                _context,
+                user.Id,
+                cancellationToken);
         }
 
         var rolesToRemove = currentRoles
@@ -409,27 +415,19 @@ public class UserManagementService : IUserManagementService
         return true;
     }
     private async Task EnsureClientProfileAsync(
+        ApplicationDbContext context,
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        await using var scope = _scopeFactory.CreateAsyncScope();
-
-        var _context = scope.ServiceProvider
-            .GetRequiredService<ApplicationDbContext>();
-
-        var _userManager = scope.ServiceProvider
-            .GetRequiredService<UserManager<ApplicationUser>>();
-
-        var _roleManager = scope.ServiceProvider
-            .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-
-        var profileExists = await _context.Clients
-            .AnyAsync(client => client.UserId == userId, cancellationToken);
+        var profileExists = await context.Clients
+            .AnyAsync(
+                client => client.UserId == userId,
+                cancellationToken);
 
         if (profileExists)
             return;
 
-        _context.Clients.Add(new Client
+        context.Clients.Add(new Client
         {
             Id = Guid.NewGuid(),
             UserId = userId,
@@ -438,6 +436,6 @@ public class UserManagementService : IUserManagementService
             IsActive = true
         });
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
     }
 }
