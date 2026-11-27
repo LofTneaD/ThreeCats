@@ -1,0 +1,65 @@
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inherits InputBase<string>
+
+<input @ref="_inputElement"
+	   @attributes="AdditionalAttributes"
+	   class="@CssClass"
+	   type="text"
+	   inputmode="numeric"
+	   autocomplete="tel"
+	   maxlength="18"
+	   placeholder="+7 (___) ___-__-__"
+	   value="@CurrentValueAsString"
+	   @oninput="HandleInput" />
+
+@code {
+	[Inject]
+	private IJSRuntime JS { get; set; } = default!;
+
+	private ElementReference _inputElement;
+	private IJSObjectReference? _module;
+
+	private void HandleInput(ChangeEventArgs args)
+	{
+		CurrentValueAsString = args.Value?.ToString() ?? string.Empty;
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!firstRender)
+			return;
+
+		_module = await JS.InvokeAsync<IJSObjectReference>(
+			"import",
+			"./js/phoneInput.js");
+
+		await _module.InvokeVoidAsync("attach", _inputElement);
+	}
+
+	protected override bool TryParseValueFromString(
+		string? value,
+		out string result,
+		out string? validationErrorMessage)
+	{
+		result = value ?? string.Empty;
+		validationErrorMessage = null;
+		return true;
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		if (_module is null)
+			return;
+
+		try
+		{
+			await _module.InvokeVoidAsync("detach", _inputElement);
+			await _module.DisposeAsync();
+		}
+		catch (JSDisconnectedException)
+		{
+			
+		}
+	}
+}

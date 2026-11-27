@@ -1,3 +1,4 @@
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ThreeCats.Domain.Entities;
@@ -11,13 +12,13 @@ public class DoctorConfiguration : IEntityTypeConfiguration<Doctor>
     {
         builder.HasKey(d => d.Id);
 
-        builder.HasIndex(d => d.UserId);
-
-        builder.Property(d => d.Specialization).HasMaxLength(150).IsRequired();
+        builder.Property(d => d.Specialization)
+            .HasMaxLength(150)
+            .IsRequired();
 
         builder.HasOne<ApplicationUser>()
             .WithOne()
-            .HasForeignKey<Doctor>(d=>d.UserId)
+            .HasForeignKey<Doctor>(d => d.UserId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -1,0 +1,848 @@
+@page "/admin/appointments"
+
+@using System.ComponentModel.DataAnnotations
+@using ThreeCats.Application.DTOs.Appointments
+@using ThreeCats.Application.DTOs.Clients
+@using ThreeCats.Application.DTOs.Doctors
+@using ThreeCats.Application.DTOs.Pets
+@using ThreeCats.Application.DTOs.Services
+@using ThreeCats.Application.DTOs.Users
+@using ThreeCats.Application.Interfaces.Appointments
+@using ThreeCats.Application.Interfaces.Services
+@using ThreeCats.Application.Interfaces.Pets
+@using ThreeCats.Application.Interfaces.Users
+@using ThreeCats.Domain.Enums
+@using ThreeCats.Application.Constants
+@using ThreeCats.Application.Models.Pagination
+
+@inject IAppointmentManagementService AppointmentManagement
+@inject IClientManagementService ClientManagement
+@inject IPetManagementService PetManagement
+@inject IDoctorManagementService DoctorManagement
+@inject IServiceManagementService ServiceManagement
+@inject IUserManagementService UserManagement
+
+<PageTitle>Управление записями на приём</PageTitle>
+
+<div class="container-fluid mt-4">
+
+	<div class="d-flex justify-content-between align-items-center mb-4">
+		<div>
+			<h2>Записи на приём</h2>
+			<p class="text-muted">
+				Управление записями клиентов к ветеринарным врачам
+			</p>
+		</div>
+
+		<button type="button"
+				class="btn btn-primary"
+				@onclick="StartCreate"
+				disabled="@isLoading">
+			Добавить запись
+		</button>
+	</div>
+
+	@if (!string.IsNullOrWhiteSpace(errorMessage))
+	{
+		<div class="alert alert-danger" role="alert">
+			@errorMessage
+		</div>
+	}
+
+	@if (!string.IsNullOrWhiteSpace(successMessage))
+	{
+		<div class="alert alert-success" role="alert">
+			@successMessage
+		</div>
+	}
+
+	@if (isLoading)
+	{
+		<p>Загрузка записей...</p>
+	}
+	else if (appointments.Count == 0)
+	{
+		<div class="alert alert-info">
+			Записи на приём пока отсутствуют.
+		</div>
+	}
+	else
+	{
+		<div class="table-responsive">
+			<table class="table table-striped table-hover align-middle">
+				<thead>
+					<tr>
+						<th>Дата и время</th>
+						<th>Клиент</th>
+						<th>Питомец</th>
+						<th>Врач</th>
+						<th>Услуга</th>
+						<th>Статус</th>
+						<th>Действия</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					@foreach (var appointment in appointments)
+					{
+						<tr @key="appointment.Id">
+							<td>
+								<strong>
+									@appointment.StartAt.ToLocalTime().ToString("dd.MM.yyyy")
+								</strong>
+								<br />
+								<span class="text-muted">
+									@appointment.StartAt.ToLocalTime().ToString("HH:mm")
+									–
+									@appointment.EndAt.ToLocalTime().ToString("HH:mm")
+								</span>
+							</td>
+
+							<td>@GetClientName(appointment.ClientId)</td>
+
+							<td>@GetPetName(appointment.PetId)</td>
+
+							<td>@GetDoctorName(appointment.DoctorId)</td>
+
+							<td>@GetServiceName(appointment.ServiceId)</td>
+
+							<td>
+								<span class="@GetStatusClass(appointment.Status)">
+									@GetStatusName(appointment.Status)
+								</span>
+							</td>
+
+							<td>
+								<button type="button"
+										class="btn btn-sm btn-outline-primary me-2"
+										@onclick="() => StartEdit(appointment)">
+									Изменить
+								</button>
+
+								<button type="button"
+										class="btn btn-sm btn-outline-danger"
+										@onclick="() => ConfirmDelete(appointment)">
+									Удалить
+								</button>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+		@if (totalPages > 1)
+		{
+			<div class="d-flex justify-content-between align-items-center mt-3">
+				<span class="text-muted">
+					Всего записей: @totalCount
+				</span>
+
+				<div class="d-flex align-items-center gap-2">
+					<button type="button"
+							class="btn btn-outline-primary"
+							disabled="@(currentPage <= 1 || isLoading)"
+							@onclick="() => ChangePageAsync(currentPage - 1)">
+						Назад
+					</button>
+
+					<span>
+						Страница @currentPage из @totalPages
+					</span>
+
+					<button type="button"
+							class="btn btn-outline-primary"
+							disabled="@(currentPage >= totalPages || isLoading)"
+							@onclick="() => ChangePageAsync(currentPage + 1)">
+						Далее
+					</button>
+				</div>
+			</div>
+		}
+		else if (totalCount > 0)
+		{
+			<div class="text-muted mt-3">
+				Всего записей: @totalCount
+			</div>
+		}
+	}
+
+	@if (showForm)
+	{
+		<div class="card mt-4 mb-4">
+			<div class="card-header">
+				<h4 class="mb-0">
+					@(editingId.HasValue
+						? "Редактирование записи"
+						: "Создание записи")
+				</h4>
+			</div>
+
+			<div class="card-body">
+				<EditForm Model="formModel"
+						  OnValidSubmit="SaveAsync"
+						  FormName="AppointmentForm">
+
+					<DataAnnotationsValidator />
+					<ValidationSummary />
+
+					<h5 class="mb-3">Участники приёма</h5>
+
+					<div class="mb-3">
+						<label class="form-label">Клиент</label>
+
+						<InputSelect TValue="Guid"
+									 class="form-select"
+									 Value="@formModel.ClientId"
+									 ValueChanged="@((Guid value) => OnClientChanged(value))"
+									 ValueExpression="@(() => formModel.ClientId)">
+
+							<option value="@Guid.Empty">
+								Выберите клиента
+							</option>
+
+							@foreach (var client in clients)
+							{
+								<option value="@client.ClientId">
+									@client.FullName
+									(@client.PhoneNumber)
+								</option>
+							}
+						</InputSelect>
+
+						<ValidationMessage For="@(() => formModel.ClientId)" />
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Питомец</label>
+
+						<InputSelect class="form-select"
+									 @bind-Value="formModel.PetId"
+									 disabled="@(formModel.ClientId == Guid.Empty)">
+
+							<option value="@Guid.Empty">
+								Выберите питомца
+							</option>
+
+							@foreach (var pet in GetClientPets())
+							{
+								<option value="@pet.Id">
+									@pet.Name — @pet.Species
+								</option>
+							}
+						</InputSelect>
+
+						<ValidationMessage For="@(() => formModel.PetId)" />
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Ветеринарный врач</label>
+
+						<InputSelect class="form-select"
+									 @bind-Value="formModel.DoctorId">
+
+							<option value="@Guid.Empty">
+								Выберите врача
+							</option>
+
+							@foreach (var doctor in doctors.Where(
+								doctor => doctor.IsActive ||
+								doctor.Id == formModel.DoctorId))
+							{
+								<option value="@doctor.Id">
+									@doctor.LastName
+									@doctor.FirstName
+									@doctor.MiddleName
+									— @doctor.Specialization
+									@(!doctor.IsActive ? " (неактивен)" : "")
+								</option>
+							}
+						</InputSelect>
+
+						<ValidationMessage For="@(() => formModel.DoctorId)" />
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Услуга</label>
+
+						<InputSelect class="form-select"
+									 @bind-Value="formModel.ServiceId">
+
+							<option value="@Guid.Empty">
+								Выберите услугу
+							</option>
+
+							@foreach (var service in services.Where(
+								service => service.IsActive ||
+								service.Id == formModel.ServiceId))
+							{
+								<option value="@service.Id">
+									@service.Name — @service.Price.ToString("N2") ₽
+									@(!service.IsActive ? " (неактивна)" : "")
+								</option>
+							}
+						</InputSelect>
+
+						<ValidationMessage For="@(() => formModel.ServiceId)" />
+					</div>
+
+					<hr />
+
+					<h5 class="mb-3">Время приёма</h5>
+
+					<div class="mb-3">
+						<label class="form-label">Начало приёма</label>
+
+						<InputDate TValue="DateTime"
+								   Type="InputDateType.DateTimeLocal"
+								   class="form-control"
+								   @bind-Value="formModel.StartAt" />
+
+						<ValidationMessage For="@(() => formModel.StartAt)" />
+
+						@if (formModel.Status == AppointmentStatus.Scheduled)
+						{
+							<div class="form-text">
+								Укажите дату и время, на которые планируется приём.
+							</div>
+						}
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Окончание приёма</label>
+
+						<InputDate TValue="DateTime"
+								   Type="InputDateType.DateTimeLocal"
+								   class="form-control"
+								   @bind-Value="formModel.EndAt" />
+
+						<ValidationMessage For="@(() => formModel.EndAt)" />
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Статус записи</label>
+
+						<InputSelect class="form-select"
+									 @bind-Value="formModel.Status">
+
+							<option value="@AppointmentStatus.Scheduled">
+								Запланирована
+							</option>
+
+							<option value="@AppointmentStatus.Confirmed">
+								Подтверждена
+							</option>
+
+							<option value="@AppointmentStatus.Completed">
+								Завершена
+							</option>
+
+							<option value="@AppointmentStatus.Cancelled">
+								Отменена
+							</option>
+
+							<option value="@AppointmentStatus.NoShow">
+								Неявка
+							</option>
+						</InputSelect>
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">
+							Комментарий
+						</label>
+
+						<InputTextArea class="form-control"
+									   rows="4"
+									   @bind-Value="formModel.Comment" />
+					</div>
+
+					<button type="submit"
+							class="btn btn-primary me-2"
+							disabled="@isSaving">
+						@(isSaving ? "Сохранение..." : "Сохранить")
+					</button>
+
+					<button type="button"
+							class="btn btn-secondary"
+							@onclick="CancelForm"
+							disabled="@isSaving">
+						Отмена
+					</button>
+
+				</EditForm>
+			</div>
+		</div>
+	}
+
+	@if (appointmentToDelete is not null)
+	{
+		<div class="alert alert-warning mt-3">
+			<p>
+				Вы действительно хотите удалить запись
+				от
+				<strong>
+					@appointmentToDelete.StartAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+				</strong>
+				для питомца
+				<strong>@GetPetName(appointmentToDelete.PetId)</strong>?
+			</p>
+
+			<p>
+				Запись, к которой уже привязан визит, удалить нельзя.
+			</p>
+
+			<button type="button"
+					class="btn btn-danger me-2"
+					@onclick="DeleteAsync"
+					disabled="@isSaving">
+				Подтвердить удаление
+			</button>
+
+			<button type="button"
+					class="btn btn-secondary"
+					@onclick="CancelDelete"
+					disabled="@isSaving">
+				Отмена
+			</button>
+		</div>
+	}
+
+</div>
+
+@code {
+	private List<AppointmentDto> appointments = [];
+	private List<ClientDto> clientProfiles = [];
+	private List<ClientOption> clients = [];
+	private List<PetDto> pets = [];
+	private List<DoctorDto> doctors = [];
+	private List<ServiceDto> services = [];
+	private List<UserDto> users = [];
+
+	private bool isLoading = true;
+	private bool isSaving;
+	private bool showForm;
+
+	private Guid? editingId;
+
+	private AppointmentFormModel formModel = new();
+
+	private AppointmentDto? appointmentToDelete;
+
+	private string? errorMessage;
+	private string? successMessage;
+
+	private int currentPage = 1;
+	private const int pageSize = 10;
+
+	private int totalCount;
+	private int totalPages;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadDataAsync();
+	}
+
+	private async Task LoadDataAsync()
+	{
+		isLoading = true;
+		errorMessage = null;
+
+		try
+		{
+			var appointmentResult = await AppointmentManagement.GetAllAsync(
+				new PagedRequest
+				{
+					PageNumber = currentPage,
+					PageSize = pageSize
+				});
+			var clientResult = await ClientManagement.GetAllForSelectionAsync();
+			var petResult = await PetManagement.GetAllForSelectionAsync();
+			var doctorResult = await DoctorManagement.GetAllForSelectionAsync();
+			var serviceResult = await ServiceManagement.GetAllForSelectionAsync();
+			var userResult = await UserManagement.GetAllForSelectionAsync();
+			users = userResult.ToList();
+
+			appointments = appointmentResult.Items.ToList();
+			totalCount = appointmentResult.TotalCount;
+			totalPages = appointmentResult.TotalPages;
+
+			clientProfiles = clientResult.ToList();
+			pets = petResult.ToList();
+			doctors = doctorResult.ToList();
+			services = serviceResult.ToList();
+
+			var usersById = userResult.ToDictionary(user => user.Id);
+
+			clients = clientProfiles
+				.Where(client => usersById.ContainsKey(client.UserId))
+				.Select(client =>
+				{
+					var user = usersById[client.UserId];
+
+					return new ClientOption(
+						client.Id,
+						$"{user.LastName} {user.FirstName} {user.MiddleName}".Trim(),
+						user.PhoneNumber ?? "Телефон не указан");
+				})
+				.OrderBy(client => client.FullName)
+				.ToList();
+		}
+		catch (Exception ex)
+		{
+			errorMessage = $"Не удалось загрузить данные записей: {ex.Message}";
+		}
+		finally
+		{
+			isLoading = false;
+		}
+	}
+
+	private IEnumerable<PetDto> GetClientPets()
+	{
+		return pets.Where(pet => pet.ClientId == formModel.ClientId);
+	}
+
+	private void OnClientChanged(Guid clientId)
+	{
+		formModel.ClientId = clientId;
+		formModel.PetId = Guid.Empty;
+	}
+
+	private string GetClientName(Guid clientId)
+	{
+		return clients.FirstOrDefault(client =>
+				   client.ClientId == clientId)?.FullName
+			   ?? "Клиент не найден";
+	}
+
+	private string GetPetName(Guid petId)
+	{
+		return pets.FirstOrDefault(pet => pet.Id == petId)?.Name
+			   ?? "Питомец не найден";
+	}
+
+	private string GetDoctorName(Guid doctorId)
+	{
+		var doctor = doctors.FirstOrDefault(doctor => doctor.Id == doctorId);
+
+		if (doctor is null)
+			return "Врач не найден";
+
+		return $"{doctor.LastName} {doctor.FirstName} {doctor.MiddleName}".Trim();
+	}
+
+	private string GetServiceName(Guid serviceId)
+	{
+		return services.FirstOrDefault(service =>
+				   service.Id == serviceId)?.Name
+			   ?? "Услуга не найдена";
+	}
+
+	private static string GetStatusName(AppointmentStatus status)
+	{
+		return status switch
+		{
+			AppointmentStatus.Scheduled => "Запланирована",
+			AppointmentStatus.Confirmed => "Подтверждена",
+			AppointmentStatus.Completed => "Завершена",
+			AppointmentStatus.Cancelled => "Отменена",
+			AppointmentStatus.NoShow => "Неявка",
+			_ => "Неизвестно"
+		};
+	}
+
+	private static string GetStatusClass(AppointmentStatus status)
+	{
+		return status switch
+		{
+			AppointmentStatus.Scheduled => "badge bg-primary",
+			AppointmentStatus.Confirmed => "badge bg-info text-dark",
+			AppointmentStatus.Completed => "badge bg-success",
+			AppointmentStatus.Cancelled => "badge bg-secondary",
+			AppointmentStatus.NoShow => "badge bg-danger",
+			_ => "badge bg-secondary"
+		};
+	}
+
+	private void StartCreate()
+	{
+		errorMessage = null;
+		successMessage = null;
+
+		editingId = null;
+
+		var start = DateTime.Now.AddHours(1);
+		start = start.AddMinutes(-start.Minute)
+					 .AddSeconds(-start.Second)
+					 .AddMilliseconds(-start.Millisecond);
+
+		formModel = new AppointmentFormModel
+		{
+			ClientId = Guid.Empty,
+			PetId = Guid.Empty,
+			DoctorId = Guid.Empty,
+			ServiceId = Guid.Empty,
+			StartAt = start,
+			EndAt = start.AddMinutes(30),
+			Status = AppointmentStatus.Scheduled
+		};
+
+		showForm = true;
+	}
+
+	private void StartEdit(AppointmentDto appointment)
+	{
+		errorMessage = null;
+		successMessage = null;
+
+		editingId = appointment.Id;
+
+		formModel = new AppointmentFormModel
+		{
+			ClientId = appointment.ClientId,
+			PetId = appointment.PetId,
+			DoctorId = appointment.DoctorId,
+			ServiceId = appointment.ServiceId,
+			StartAt = appointment.StartAt.ToLocalTime(),
+			EndAt = appointment.EndAt.ToLocalTime(),
+			Status = appointment.Status,
+			Comment = appointment.Comment
+		};
+
+		showForm = true;
+	}
+
+	private void CancelForm()
+	{
+		showForm = false;
+		editingId = null;
+	}
+
+	private async Task SaveAsync()
+	{
+		errorMessage = null;
+		successMessage = null;
+
+		isSaving = true;
+
+		try
+		{
+			if (editingId.HasValue)
+			{
+				var dto = new UpdateAppointmentDto(
+					editingId.Value,
+					formModel.ClientId,
+					formModel.PetId,
+					formModel.DoctorId,
+					formModel.ServiceId,
+					ToUtc(formModel.StartAt),
+					ToUtc(formModel.EndAt),
+					formModel.Status,
+					formModel.Comment.Trim());
+
+				var updated = await AppointmentManagement.UpdateAsync(dto);
+
+				if (!updated)
+				{
+					errorMessage = "Запись не найдена.";
+					return;
+				}
+
+				successMessage = "Запись успешно обновлена.";
+			}
+			else
+			{
+				// ВРЕМЕННАЯ ЗАГЛУШКА ДО РЕАЛИЗАЦИИ АВТОРИЗАЦИИ.
+				// Выбираем существующую учётную запись сотрудника.
+
+				var creator = users.FirstOrDefault(user =>
+					user.Role == UserRoles.Administrator)
+					?? users.FirstOrDefault(user =>
+						user.Role == UserRoles.Moderator)
+					?? users.FirstOrDefault(user =>
+						user.Role == UserRoles.Doctor);
+
+				// Если сотрудников нет, используем любую существующую
+				// учётную запись, чтобы проверить работу CRUD.
+
+				creator ??= users.FirstOrDefault();
+
+				if (creator is null)
+				{
+					errorMessage =
+						"Невозможно создать запись: в системе нет пользователей.";
+
+					return;
+				}
+
+				var dto = new CreateAppointmentDto(
+					formModel.ClientId,
+					formModel.PetId,
+					formModel.DoctorId,
+					formModel.ServiceId,
+					creator.Id,
+					ToUtc(formModel.StartAt),
+					ToUtc(formModel.EndAt),
+					formModel.Status,
+					formModel.Comment.Trim());
+
+				await AppointmentManagement.CreateAsync(dto);
+
+				successMessage = "Запись успешно создана.";
+			}
+
+			showForm = false;
+			editingId = null;
+
+			await LoadDataAsync();
+		}
+		catch (Exception ex)
+		{
+			errorMessage = ex.Message;
+		} 
+		finally
+		{
+			isSaving = false;
+		}
+	}
+
+	private static DateTime ToUtc(DateTime value)
+	{
+		return DateTime.SpecifyKind(value, DateTimeKind.Local).ToUniversalTime();
+	}
+
+	private void ConfirmDelete(AppointmentDto appointment)
+	{
+		errorMessage = null;
+		successMessage = null;
+
+		appointmentToDelete = appointment;
+	}
+
+	private void CancelDelete()
+	{
+		appointmentToDelete = null;
+	}
+
+	private async Task DeleteAsync()
+	{
+		if (appointmentToDelete is null)
+			return;
+
+		errorMessage = null;
+		successMessage = null;
+
+		isSaving = true;
+
+		try
+		{
+			var deleted = await AppointmentManagement.DeleteAsync(
+				appointmentToDelete.Id);
+
+			if (!deleted)
+			{
+				errorMessage =
+					"Не удалось удалить запись. Возможно, с ней уже связан визит.";
+
+				return;
+			}
+
+			successMessage = "Запись успешно удалена.";
+
+			appointmentToDelete = null;
+
+			await LoadDataAsync();
+		}
+		catch (Exception ex)
+		{
+			errorMessage = $"Не удалось удалить запись: {ex.Message}";
+		}
+		finally
+		{
+			isSaving = false;
+		}
+	}
+
+	private sealed record ClientOption(
+		Guid ClientId,
+		string FullName,
+		string PhoneNumber);
+
+	private sealed class AppointmentFormModel : IValidatableObject
+	{
+		public Guid ClientId { get; set; }
+
+		public Guid PetId { get; set; }
+
+		public Guid DoctorId { get; set; }
+
+		public Guid ServiceId { get; set; }
+
+		public DateTime StartAt { get; set; } = DateTime.Now;
+
+		public DateTime EndAt { get; set; } = DateTime.Now.AddMinutes(30);
+
+		public AppointmentStatus Status { get; set; } =
+			AppointmentStatus.Scheduled;
+
+		[StringLength(2000,
+			ErrorMessage = "Комментарий не должен превышать 2000 символов.")]
+		public string Comment { get; set; } = string.Empty;
+
+		public IEnumerable<ValidationResult> Validate(
+			ValidationContext validationContext)
+		{
+			if (ClientId == Guid.Empty)
+			{
+				yield return new ValidationResult(
+					"Выберите клиента.",
+					[nameof(ClientId)]);
+			}
+
+			if (PetId == Guid.Empty)
+			{
+				yield return new ValidationResult(
+					"Выберите питомца.",
+					[nameof(PetId)]);
+			}
+
+			if (DoctorId == Guid.Empty)
+			{
+				yield return new ValidationResult(
+					"Выберите ветеринарного врача.",
+					[nameof(DoctorId)]);
+			}
+
+			if (ServiceId == Guid.Empty)
+			{
+				yield return new ValidationResult(
+					"Выберите услугу.",
+					[nameof(ServiceId)]);
+			}
+
+			if (EndAt <= StartAt)
+			{
+				yield return new ValidationResult(
+					"Время окончания должно быть позже времени начала.",
+					[nameof(EndAt)]);
+			}
+
+			if (Status == AppointmentStatus.Scheduled &&
+				StartAt <= DateTime.Now)
+			{
+				yield return new ValidationResult(
+					"Для запланированной записи укажите будущую дату и время приёма.",
+					[nameof(StartAt)]);
+			}
+		}
+	}
+	private async Task ChangePageAsync(int pageNumber)
+	{
+		if (pageNumber < 1 || pageNumber > totalPages)
+			return;
+
+		currentPage = pageNumber;
+
+		await LoadDataAsync();
+	}
+}
